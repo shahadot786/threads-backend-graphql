@@ -1,6 +1,6 @@
 # Threads App Backend
 
-A modern GraphQL backend API for a Threads-like social application, built with **Apollo Server 5**, **Express.js 5**, and **TypeScript**.
+A modern GraphQL backend API for a Threads-like social application, built with **Apollo Server 5**, **Express.js 5**, **TypeScript**, and **PostgreSQL**.
 
 ## Tech Stack
 
@@ -11,14 +11,18 @@ A modern GraphQL backend API for a Threads-like social application, built with *
 | Express.js | ^5.2.1 | Web framework |
 | Apollo Server | ^5.2.0 | GraphQL server |
 | GraphQL | ^16.12.0 | Query language |
+| PostgreSQL | 18+ | Database |
+| Docker | Latest | Containerization |
 
 ## Features
 
 - 🚀 **GraphQL API** via Apollo Server
 - 🔷 **TypeScript** for type safety
 - ⚡ **Express 5** with native async/await support
+- 🐘 **PostgreSQL** database with Docker
 - 🔄 **Hot Reload** development with `tsc-watch`
 - 📦 **ES Modules** for modern JavaScript
+- 🐳 **Docker Compose** for local development
 
 ## Getting Started
 
@@ -26,6 +30,7 @@ A modern GraphQL backend API for a Threads-like social application, built with *
 
 - Node.js (v18+ recommended)
 - Yarn or npm
+- Docker & Docker Compose
 
 ### Installation
 
@@ -38,8 +43,16 @@ cd threads-app-backend
 
 # Install dependencies
 yarn install
-# or
-npm install
+```
+
+### Start Database
+
+```bash
+# Start PostgreSQL container
+docker compose up -d
+
+# Check if container is running
+docker ps
 ```
 
 ### Development
@@ -47,8 +60,6 @@ npm install
 ```bash
 # Start development server with hot reload
 yarn dev
-# or
-npm run dev
 ```
 
 The server will start at `http://localhost:8000`
@@ -57,14 +68,38 @@ The server will start at `http://localhost:8000`
 
 ```bash
 # Build the project
-yarn build
-# or
 npx tsc
 
 # Start production server
 yarn start
-# or
-npm start
+```
+
+## Database Configuration
+
+PostgreSQL runs in Docker with the following default credentials:
+
+| Setting | Value |
+|---------|-------|
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `threads` |
+| User | `postgres` |
+| Password | `threads` |
+
+### Docker Commands
+
+```bash
+# Start database
+docker compose up -d
+
+# Stop database
+docker compose down
+
+# View logs
+docker logs threads-db
+
+# Reset database (removes all data)
+docker compose down -v
 ```
 
 ## API Endpoints
@@ -103,12 +138,13 @@ Response:
 ```
 threads-app-backend/
 ├── src/
-│   └── index.ts        # Main server entry point
-├── dist/               # Compiled JavaScript output
-├── package.json        # Dependencies and scripts
-├── tsconfig.json       # TypeScript configuration
-├── LICENSE             # MIT License
-└── README.md           # This file
+│   └── index.ts          # Main server entry point
+├── dist/                  # Compiled JavaScript output
+├── docker-compose.yml     # PostgreSQL container config
+├── package.json           # Dependencies and scripts
+├── tsconfig.json          # TypeScript configuration
+├── LICENSE                # MIT License
+└── README.md              # This file
 ```
 
 ## Scripts
@@ -134,4 +170,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-*Built with ❤️ using Apollo Server, Express, and TypeScript*
+*Built with ❤️ using Apollo Server, Express, TypeScript, and PostgreSQL*
