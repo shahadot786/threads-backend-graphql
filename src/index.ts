@@ -1,6 +1,7 @@
 import express from "express";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@as-integrations/express5";
+import { typeDefs, resolvers } from "./graphql/index.js";
 
 async function startServer() {
   const app = express();
@@ -8,16 +9,8 @@ async function startServer() {
 
   //configure Apollo Server
   const apolloServer = new ApolloServer({
-    typeDefs: /* GraphQL */ `
-      type Query {
-        hello: String
-      }
-    `,
-    resolvers: {
-      Query: {
-        hello: () => "Hello from Apollo Server!",
-      },
-    },
+    typeDefs,
+    resolvers,
   });
 
   await apolloServer.start();
