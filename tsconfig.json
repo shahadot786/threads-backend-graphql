@@ -2,8 +2,11 @@
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
     // File Layout
-    "rootDir": "./src",
+    "rootDir": ".",
     "outDir": "./dist",
+    "paths": {
+      "@prisma/generated/*": ["./generated/prisma/*"]
+    },
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
@@ -40,5 +43,7 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true
-  }
+  },
+  "include": ["src/**/*", "generated/**/*"],
+  "exclude": ["node_modules", "prisma.config.ts"]
 }
