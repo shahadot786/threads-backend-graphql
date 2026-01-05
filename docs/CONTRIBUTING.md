@@ -7,8 +7,8 @@ Thank you for your interest in contributing! 🎉
 ### 1. Fork & Clone
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/threads-app.git
-cd threads-app
+git clone https://github.com/shahadot786/threads-backend-graphql.git
+cd threads-backend-graphql
 ```
 
 ### 2. Set Up Development Environment
