@@ -8,9 +8,13 @@ export const userTypeDefs = /* GraphQL */ `
   }
 
   type Query {
+    # Public queries
     getUsers: [User!]!
     getUserById(id: String!): User
     getUserByEmail(email: String): User
+    
+    # Protected queries (requires authentication)
+    getCurrentLoggedInUser: User
   }
 
   type Mutation {
