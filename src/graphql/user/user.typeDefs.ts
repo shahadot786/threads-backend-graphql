@@ -1,6 +1,6 @@
 export const userTypeDefs = /* GraphQL */ `
   type User {
-    id: String!
+    id: ID!
     firstName: String!
     lastName: String
     profileImageUrl: String
@@ -10,6 +10,7 @@ export const userTypeDefs = /* GraphQL */ `
   type Query {
     getUsers: [User!]!
     getUserById(id: String!): User
+    getUserByEmail(email: String): User
   }
 
   type Mutation {
@@ -20,5 +21,7 @@ export const userTypeDefs = /* GraphQL */ `
       email: String!
       password: String!
     ): User!
+
+    getUserToken(email: String!, password: String!): String!
   }
 `;
