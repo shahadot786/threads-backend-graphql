@@ -1,249 +1,106 @@
-# Threads App Backend
+# Threads App
 
-A modern GraphQL backend API for a Threads-like social application, built with **Apollo Server 5**, **Express.js 5**, **TypeScript**, **Prisma ORM**, and **PostgreSQL**.
+A modern social threads application built with GraphQL, Next.js, and PostgreSQL featuring secure JWT authentication with refresh tokens.
 
-## Tech Stack
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)
+![Next.js](https://img.shields.io/badge/Next.js-16-black)
+![Apollo](https://img.shields.io/badge/Apollo_Server-5-purple)
+![Prisma](https://img.shields.io/badge/Prisma-7-teal)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)
 
-| Technology | Version | Purpose |
-|------------|---------|---------|
-| Node.js | Latest | JavaScript runtime |
-| TypeScript | ^5.9.3 | Type-safe development |
-| Express.js | ^5.2.1 | Web framework |
-| Apollo Server | ^5.2.0 | GraphQL server |
-| GraphQL | ^16.12.0 | Query language |
-| Prisma | ^7.2.0 | Database ORM |
-| PostgreSQL | 18+ | Database |
-| Docker | Latest | Containerization |
+## 📁 Project Structure
 
-## Features
+```
+threads-app/
+├── backend/              # GraphQL API (Apollo Server + Express + Prisma)
+├── frontend/             # Next.js Web Application
+├── docs/                 # Documentation
+│   ├── ARCHITECTURE.md   # System architecture
+│   ├── DEPLOYMENT.md     # Deployment guide
+│   └── CONTRIBUTING.md   # Contribution guidelines
+├── docker-compose.yml    # Docker services
+├── TASK.md              # Project roadmap
+└── README.md            # This file
+```
 
-- 🚀 **GraphQL API** via Apollo Server 5
-- 🔷 **TypeScript** for type safety
-- 🔐 **Prisma ORM** with type-safe database queries
-- ⚡ **Express 5** with native async/await support
-- 🐘 **PostgreSQL** database with Docker
-- 🔄 **Hot Reload** development with `tsc-watch`
-- 📦 **ES Modules** for modern JavaScript
-- 🐳 **Docker Compose** for local development
-- 🧩 **Modular GraphQL** architecture
-
-## Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
-
-- Node.js (v18+ recommended)
-- Yarn or npm
+- Node.js 20+
 - Docker & Docker Compose
+- Yarn or npm
 
-### Installation
+### 1. Clone & Install
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/threads-app-backend.git
-
-# Navigate to the project
-cd threads-app-backend
-
-# Install dependencies
-yarn install
+git clone https://github.com/yourusername/threads-app.git
+cd threads-app
 ```
 
-### Start Database
+### 2. Start PostgreSQL
 
 ```bash
-# Start PostgreSQL container
 docker compose up -d
-
-# Check if container is running
-docker ps
 ```
 
-### Database Setup with Prisma
+### 3. Start Backend
 
 ```bash
-# Generate Prisma Client
-npx prisma generate
-
-# Run database migrations
+cd backend
+cp .env.example .env  # Configure environment
+yarn install
 npx prisma migrate dev
-
-# (Optional) Open Prisma Studio to view data
-npx prisma studio
-```
-
-### Development
-
-```bash
-# Start development server with hot reload
 yarn dev
 ```
+→ GraphQL API: http://localhost:8000/graphql
 
-The server will start at `http://localhost:8000`
-
-### Production
-
-```bash
-# Build the project
-npx tsc
-
-# Start production server
-yarn start
-```
-
-## Project Structure
-
-```
-threads-app-backend/
-├── src/
-│   ├── graphql/
-│   │   ├── index.ts              # Merges all GraphQL modules
-│   │   └── user/
-│   │       ├── user.typeDefs.ts  # User GraphQL schema
-│   │       ├── user.resolvers.ts # User query/mutation resolvers
-│   │       └── user.service.ts   # User database operations
-│   ├── lib/
-│   │   └── prisma.ts             # Prisma client instance
-│   └── index.ts                  # Main server entry point
-├── prisma/
-│   ├── schema.prisma             # Prisma schema (models)
-│   └── migrations/               # Database migrations
-├── generated/
-│   └── prisma/                   # Generated Prisma Client
-├── dist/                         # Compiled JavaScript output
-├── docker-compose.yml            # PostgreSQL container config
-├── prisma.config.ts              # Prisma configuration
-├── package.json                  # Dependencies and scripts
-├── tsconfig.json                 # TypeScript configuration
-├── LICENSE                       # MIT License
-└── README.md                     # This file
-```
-
-## Database Models
-
-### User
-
-| Field | Type | Description |
-|-------|------|-------------|
-| id | String (UUID) | Primary key |
-| firstName | String | User's first name |
-| lastName | String? | User's last name (optional) |
-| profileImageUrl | String? | Profile image URL (optional) |
-| email | String | Unique email address |
-| password | String | Hashed password |
-| salt | String | Password salt |
-
-## GraphQL API
-
-### Endpoint
-
-```
-POST http://localhost:8000/graphql
-```
-
-Access Apollo Sandbox at: `http://localhost:8000/graphql`
-
-### Queries
-
-```graphql
-# Get all users
-query {
-  getUsers {
-    id
-    firstName
-    lastName
-    email
-  }
-}
-
-# Get user by ID
-query {
-  getUserById(id: "uuid-here") {
-    id
-    firstName
-    email
-  }
-}
-```
-
-### Mutations
-
-```graphql
-# Create a new user
-mutation {
-  createUser(
-    firstName: "John"
-    lastName: "Doe"
-    email: "john.doe@example.com"
-    password: "securePassword123"
-  ) {
-    id
-    firstName
-    lastName
-    email
-  }
-}
-```
-
-## Database Configuration
-
-PostgreSQL runs in Docker with the following default credentials:
-
-| Setting | Value |
-|---------|-------|
-| Host | `localhost` |
-| Port | `5432` |
-| Database | `threads` |
-| User | `postgres` |
-| Password | `threads` |
-
-### Docker Commands
+### 4. Start Frontend
 
 ```bash
-# Start database
-docker compose up -d
-
-# Stop database
-docker compose down
-
-# View logs
-docker logs threads-db
-
-# Reset database (removes all data)
-docker compose down -v
+cd frontend
+yarn install
+yarn dev
 ```
+→ Web App: http://localhost:3000
 
-## Scripts
+## ✨ Features
 
-| Command | Description |
-|---------|-------------|
-| `yarn dev` | Start development server with hot reload |
-| `yarn start` | Start production server |
-| `npx prisma generate` | Generate Prisma Client |
-| `npx prisma migrate dev` | Run database migrations |
-| `npx prisma studio` | Open Prisma Studio GUI |
+### Implemented ✅
+- **JWT Authentication** with secure httpOnly cookies
+- **Refresh Token Rotation** for enhanced security
+- **User Registration & Login** with password hashing (HMAC-SHA256)
+- **Protected Routes** on both frontend and backend
+- **Modular GraphQL Architecture** with type-safe resolvers
+- **PostgreSQL** with Prisma ORM
 
-## Environment Variables
+### Coming Soon 🚧
+- Thread creation and feed
+- Likes and comments
+- Follow system
+- Real-time notifications
+- Profile editing with image upload
 
-Create a `.env` file in the root directory:
+## 🛠 Tech Stack
 
-```env
-PORT=8000
-DATABASE_URL=postgresql://postgres:threads@localhost:5432/threads
-```
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | Next.js 16, React 19, Tailwind CSS 4, Apollo Client |
+| **Backend** | Apollo Server 5, Express 5, TypeScript 5.9 |
+| **Database** | PostgreSQL 16, Prisma 7 ORM |
+| **Auth** | JWT, httpOnly Cookies, Refresh Tokens |
+| **DevOps** | Docker, Docker Compose |
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `8000` | Server port |
-| `DATABASE_URL` | - | PostgreSQL connection string |
+## 📚 Documentation
 
-## License
+- [Architecture](docs/ARCHITECTURE.md) - System design and data flow
+- [Deployment](docs/DEPLOYMENT.md) - Production deployment guide
+- [Contributing](docs/CONTRIBUTING.md) - How to contribute
+- [Task Roadmap](TASK.md) - What's done and what's next
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## 📝 License
 
-## Author
-
-**MD. Shahadot Hossain**
+MIT License - see [LICENSE](LICENSE)
 
 ---
 
-*Built with ❤️ using Apollo Server, Express, TypeScript, Prisma, and PostgreSQL*
+Built with ❤️ using Next.js, Apollo, and PostgreSQL
