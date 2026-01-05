@@ -7,17 +7,21 @@ export const userTypeDefs = /* GraphQL */ `
     email: String!
   }
 
+  type AuthResponse {
+    accessToken: String!
+    user: User!
+  }
+
   type Query {
-    # Public queries
+    # Protected queries (requires authentication)
     getUsers: [User!]!
     getUserById(id: String!): User
     getUserByEmail(email: String): User
-    
-    # Protected queries (requires authentication)
     getCurrentLoggedInUser: User
   }
 
   type Mutation {
+    # Public mutations
     createUser(
       firstName: String!
       lastName: String
@@ -26,6 +30,10 @@ export const userTypeDefs = /* GraphQL */ `
       password: String!
     ): User!
 
-    getUserToken(email: String!, password: String!): String!
+    # Auth mutations
+    login(email: String!, password: String!): AuthResponse!
+    refreshToken: AuthResponse!
+    logout: Boolean!
+    logoutAll: Boolean!
   }
 `;
