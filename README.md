@@ -33,8 +33,8 @@ threads-app/
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/yourusername/threads-app.git
-cd threads-app
+git clone https://github.com/shahadot786/threads-backend-graphql.git
+cd threads-backend-graphql
 ```
 
 ### 2. Start PostgreSQL
