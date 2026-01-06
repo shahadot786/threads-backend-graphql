@@ -246,5 +246,17 @@ export const userResolvers = {
       const user = requireAuth(context);
       return userService.markAllNotificationsAsRead(user.id);
     },
+
+    // Password Recovery
+    forgotPassword: async (_: unknown, args: { email: string }) => {
+      return userService.forgotPassword(args.email);
+    },
+
+    resetPassword: async (
+      _: unknown,
+      args: { token: string; newPassword: string }
+    ) => {
+      return userService.resetPassword(args.token, args.newPassword);
+    },
   },
 };

@@ -155,6 +155,10 @@ export const userTypeDefs = /* GraphQL */ `
     logout: Boolean!
     logoutAll: Boolean!
 
+    # Password Recovery
+    forgotPassword(email: String!): Boolean!
+    resetPassword(token: String!, newPassword: String!): Boolean!
+
     # Follow (PROTECTED)
     followUser(userId: ID!): Boolean!
     unfollowUser(userId: ID!): Boolean!

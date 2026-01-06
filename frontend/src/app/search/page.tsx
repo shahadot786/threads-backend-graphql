@@ -56,112 +56,133 @@ export default function SearchPage() {
     <MainLayout>
       <Header title="Search" />
 
-      {/* Search Input */}
-      <div className="px-4 py-3 border-b border-border">
-        <div className="relative">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+      {/* Search Input Section */}
+      <div className="px-4 py-6">
+        <div className="relative max-w-[500px] mx-auto">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
+            <svg
+              className="w-5 h-5 text-text-tertiary"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
           <input
             type="text"
             value={query}
             onChange={handleInputChange}
             placeholder="Search"
-            className="w-full pl-10 pr-4 py-3 bg-bg-secondary rounded-xl text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-accent"
+            className="w-full pl-12 pr-4 py-4 bg-[#1e1e1e] border-none rounded-2xl text-text-primary placeholder:text-text-tertiary outline-none transition-all focus:ring-1 focus:ring-border/40 text-[15px]"
           />
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border">
+      <div className="flex border-b border-border/20 px-4">
         <button
           onClick={() => handleTabChange("users")}
-          className={`flex-1 py-3 text-center font-medium transition-colors ${activeTab === "users"
-            ? "text-text-primary border-b-2 border-accent"
-            : "text-text-secondary"
+          className={`flex-1 flex flex-col items-center py-3 text-[15px] font-bold transition-all relative ${activeTab === "users"
+            ? "text-text-primary"
+            : "text-text-secondary hover:text-text-primary"
             }`}
         >
           Users
+          {activeTab === "users" && (
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-text-primary rounded-full transition-all duration-300" />
+          )}
         </button>
         <button
           onClick={() => handleTabChange("posts")}
-          className={`flex-1 py-3 text-center font-medium transition-colors ${activeTab === "posts"
-            ? "text-text-primary border-b-2 border-accent"
-            : "text-text-secondary"
+          className={`flex-1 flex flex-col items-center py-3 text-[15px] font-bold transition-all relative ${activeTab === "posts"
+            ? "text-text-primary"
+            : "text-text-secondary hover:text-text-primary"
             }`}
         >
           Posts
+          {activeTab === "posts" && (
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-text-primary rounded-full transition-all duration-300" />
+          )}
         </button>
       </div>
 
       {/* Results */}
-      <div className="pb-20 md:pb-4">
+      <div className="pb-20 md:pb-4 min-h-[400px]">
         {query.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-text-secondary">Search for users or posts</p>
+          <div className="py-20 text-center animate-fade-in">
+            <p className="text-text-tertiary text-sm">Search for users or posts</p>
           </div>
         ) : query.length < 2 ? (
-          <div className="py-16 text-center">
-            <p className="text-text-secondary">Enter at least 2 characters</p>
+          <div className="py-20 text-center animate-fade-in">
+            <p className="text-text-tertiary text-sm">Enter at least 2 characters</p>
           </div>
         ) : loading ? (
-          <>
+          <div className="space-y-4 pt-4">
             <PostSkeleton />
             <PostSkeleton />
             <PostSkeleton />
-          </>
+          </div>
         ) : activeTab === "users" ? (
           users.length === 0 ? (
-            <div className="py-16 text-center">
-              <p className="text-text-secondary">No users found</p>
+            <div className="py-20 text-center animate-fade-in">
+              <p className="text-text-tertiary text-sm">No users found</p>
             </div>
           ) : (
-            users.map((edge) => (
-              <Link
-                key={edge.node.id}
-                href={`/@${edge.node.username}`}
-                className="flex items-center gap-3 px-4 py-3 hover:bg-hover transition-colors"
-              >
-                <Avatar
-                  src={edge.node.profileImageUrl}
-                  firstName={edge.node.firstName}
-                  lastName={edge.node.lastName}
-                  size="lg"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1">
-                    <span className="font-semibold text-text-primary truncate">{edge.node.username}</span>
-                    {edge.node.is_verified && (
-                      <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+            <div className="divide-y divide-border/10">
+              {users.map((edge) => (
+                <Link
+                  key={edge.node.id}
+                  href={`/@${edge.node.username}`}
+                  className="flex items-center gap-4 px-4 py-4 hover:bg-hover/50 transition-all group"
+                >
+                  <Avatar
+                    src={edge.node.profileImageUrl}
+                    firstName={edge.node.firstName}
+                    lastName={edge.node.lastName}
+                    size="lg"
+                    className="w-12 h-12 border border-border/20"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-text-primary truncate transition-colors group-hover:underline">
+                        {edge.node.username}
+                      </span>
+                      {edge.node.is_verified && (
+                        <svg className="w-[14px] h-[14px] text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                    </div>
+                    <p className="text-text-secondary text-[14px] truncate leading-tight">
+                      {edge.node.firstName} {edge.node.lastName}
+                    </p>
+                    {edge.node.stats && (
+                      <p className="text-text-tertiary text-[13px] mt-0.5">
+                        {edge.node.stats.followersCount.toLocaleString()} followers
+                      </p>
                     )}
                   </div>
-                  <p className="text-text-secondary text-sm truncate">
-                    {edge.node.firstName} {edge.node.lastName}
-                  </p>
-                  {edge.node.stats && (
-                    <p className="text-text-tertiary text-sm">
-                      {edge.node.stats.followersCount} followers
-                    </p>
-                  )}
-                </div>
-              </Link>
-            ))
+                  <div className="flex-shrink-0">
+                    <button className="h-9 px-6 rounded-xl border border-border text-[14px] font-bold hover:bg-white hover:text-black transition-all active:scale-95">
+                      Follow
+                    </button>
+                  </div>
+                </Link>
+              ))}
+            </div>
           )
         ) : posts.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-text-secondary">No posts found</p>
+          <div className="py-20 text-center animate-fade-in">
+            <p className="text-text-tertiary text-sm">No posts found</p>
           </div>
         ) : (
-          posts.map(({ node: post }) => (
-            <PostCard key={post.id} post={post} />
-          ))
+          <div className="divide-y divide-border/10">
+            {posts.map(({ node: post }) => (
+              <PostCard key={post.id} post={post} />
+            ))}
+          </div>
         )}
       </div>
     </MainLayout>

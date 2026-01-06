@@ -21,18 +21,19 @@
 }
 
 :root[data-theme="dark"] {
-  /* Dark Theme - Threads.com style */
+  /* Dark Theme - Exact Threads.com style */
   --bg-primary: #101010;
   --bg-secondary: #181818;
   --bg-tertiary: #262626;
-  --text-primary: #f3f5f7;
+  --text-primary: #F3F5F7;
   --text-secondary: #777777;
-  --text-tertiary: #555555;
-  --border-color: #333333;
+  --text-tertiary: #4D4D4D;
+  --border-color: rgba(243, 245, 247, 0.15); /* Subtle border */
   --accent-color: #ffffff;
-  --hover-bg: rgba(255, 255, 255, 0.05);
+  --hover-bg: rgba(255, 255, 255, 0.05); /* Slightly clearer hover */
   --card-bg: #181818;
-  --icon-color: #f3f5f7;
+  --icon-color: #B0B0B0;
+  --icon-active: #F3F5F7;
   color-scheme: dark;
 }
 
@@ -52,6 +53,11 @@
   --color-hover: var(--hover-bg);
   --color-card: var(--card-bg);
   --color-icon: var(--icon-color);
+  --color-icon-active: var(--icon-active);
+  
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
 }
 
 /* ========================================
@@ -66,16 +72,18 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
+  line-height: calc(1em + 0.5rem);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* ========================================
@@ -83,8 +91,7 @@ body {
    ======================================== */
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px; /* Sleeker scrollbar */
 }
 
 ::-webkit-scrollbar-track {
@@ -92,12 +99,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 4px;
+  background-color: var(--text-tertiary);
+  border-radius: 20px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-tertiary);
+  background-color: var(--text-secondary);
 }
 
 /* ========================================
@@ -119,99 +126,75 @@ body {
 }
 
 .focus-ring:focus-visible {
-  outline: 2px solid var(--accent-color);
+  outline: 2px solid rgba(255, 255, 255, 0.4);
   outline-offset: 2px;
+}
+
+/* Premium Input Styles */
+.premium-input {
+  @apply w-full bg-[#1e1e1e] text-white border border-transparent rounded-2xl px-4 py-4 outline-none transition-all duration-300 placeholder:text-[#4d4d4d] hover:bg-[#252525];
+}
+
+.premium-input:focus {
+  @apply bg-[#252525] ring-1 ring-white/10;
+}
+
+/* Premium Button Styles */
+.premium-button {
+  @apply w-full h-[56px] bg-white text-black font-bold rounded-2xl transition-all duration-300 active:scale-[0.97] hover:bg-[#f0f0f0] shadow-lg shadow-white/5;
+}
+
+.premium-button-secondary {
+  @apply w-full h-[56px] bg-transparent text-white border border-white/10 font-bold rounded-2xl transition-all duration-300 active:scale-[0.97] hover:bg-white/5;
 }
 
 /* Thread line connecting posts */
 .thread-line {
   position: absolute;
-  left: 19px;
+  left: 17px; 
   top: 48px;
   bottom: 0;
   width: 2px;
   background-color: var(--border-color);
+  border-radius: 9999px;
+  opacity: 0.6;
 }
 
-/* Transition for theme changes */
-.theme-transition {
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
+/* ========================================
+   ANIMATIONS
+   ======================================== */
 
-/* Animation */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes slideUp {
+@keyframes scaleIn {
   from { 
     opacity: 0;
-    transform: translateY(10px);
+    transform: scale(0.98) translateY(10px);
   }
   to { 
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1) translateY(0);
   }
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.2s ease-out;
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.animate-slide-up {
-  animation: slideUp 0.3s ease-out;
+.animate-scale-in {
+  animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ========================================
-   LAYOUT UTILITIES
+   LAYOUT HELPERS
    ======================================== */
 
-/* Main app container */
-.app-container {
-  display: flex;
-  min-height: 100vh;
-}
-
-/* Sidebar width */
-.sidebar {
-  width: 76px;
-  min-width: 76px;
-}
-
-/* Main content area */
-.main-content {
-  flex: 1;
+.center-container {
   max-width: 640px;
+  width: 100%;
   margin: 0 auto;
 }
 
-/* Right sidebar (auth card) */
-.right-sidebar {
-  width: 320px;
-  min-width: 320px;
-}
-
-/* Responsive adjustments */
-@media (max-width: 1024px) {
-  .right-sidebar {
-    display: none;
-  }
-}
-
-@media (max-width: 768px) {
-  .sidebar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    min-width: 100%;
-    height: 56px;
-    z-index: 50;
-  }
-  
-  .main-content {
-    padding-bottom: 72px;
-  }
-}
