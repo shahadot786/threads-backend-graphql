@@ -1,26 +1,217 @@
 @import "tailwindcss";
 
+/* ========================================
+   THEME VARIABLES
+   ======================================== */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Light Theme */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #e5e5e5;
+  --text-primary: #000000;
+  --text-secondary: #737373;
+  --text-tertiary: #a3a3a3;
+  --border-color: #e5e5e5;
+  --accent-color: #000000;
+  --hover-bg: rgba(0, 0, 0, 0.05);
+  --card-bg: #ffffff;
+  --icon-color: #000000;
+  color-scheme: light;
 }
+
+:root[data-theme="dark"] {
+  /* Dark Theme - Threads.com style */
+  --bg-primary: #101010;
+  --bg-secondary: #181818;
+  --bg-tertiary: #262626;
+  --text-primary: #f3f5f7;
+  --text-secondary: #777777;
+  --text-tertiary: #555555;
+  --border-color: #333333;
+  --accent-color: #ffffff;
+  --hover-bg: rgba(255, 255, 255, 0.05);
+  --card-bg: #181818;
+  --icon-color: #f3f5f7;
+  color-scheme: dark;
+}
+
+/* ========================================
+   TAILWIND THEME EXTENSION
+   ======================================== */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-tertiary: var(--bg-tertiary);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-border: var(--border-color);
+  --color-accent: var(--accent-color);
+  --color-hover: var(--hover-bg);
+  --color-card: var(--card-bg);
+  --color-icon: var(--icon-color);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ========================================
+   BASE STYLES
+   ======================================== */
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+/* ========================================
+   SCROLLBAR STYLES
+   ======================================== */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Focus styles */
+.focus-ring {
+  outline: none;
+}
+
+.focus-ring:focus-visible {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+/* Thread line connecting posts */
+.thread-line {
+  position: absolute;
+  left: 19px;
+  top: 48px;
+  bottom: 0;
+  width: 2px;
+  background-color: var(--border-color);
+}
+
+/* Transition for theme changes */
+.theme-transition {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+/* ========================================
+   LAYOUT UTILITIES
+   ======================================== */
+
+/* Main app container */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar width */
+.sidebar {
+  width: 76px;
+  min-width: 76px;
+}
+
+/* Main content area */
+.main-content {
+  flex: 1;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* Right sidebar (auth card) */
+.right-sidebar {
+  width: 320px;
+  min-width: 320px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .right-sidebar {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    min-width: 100%;
+    height: 56px;
+    z-index: 50;
+  }
+  
+  .main-content {
+    padding-bottom: 72px;
+  }
 }
