@@ -49,56 +49,76 @@
 - [x] Contributing guide
 - [x] Project roadmap (this file)
 
+### Phase 6: Thread/Post Feature ✅ NEW
+- [x] Post model in Prisma schema
+- [x] PostMedia model for attachments
+- [x] Post typeDefs and resolvers
+- [x] Create post mutation
+- [x] Update post mutation
+- [x] Delete post mutation
+- [x] Reply to post mutation
+- [x] Get posts query (with pagination)
+- [x] Get user's posts query
+- [x] Get home feed query
+- [x] Get trending posts query
+
+### Phase 7: Social Features ✅ NEW
+- [x] PostLike model (user-post relation)
+- [x] Like/Unlike mutations
+- [x] Like count on posts
+- [x] Follow model (user-user relation) - already existed
+- [x] Follow/Unfollow mutations - already existed
+- [x] Follower/Following counts - already existed
+- [x] Feed query (posts from followed users)
+
+### Phase 8: Bookmarks ✅ NEW
+- [x] Bookmark model
+- [x] Add bookmark mutation
+- [x] Remove bookmark mutation
+- [x] Bookmarks on profile
+- [x] Bookmark count
+
+### Phase 9: Hashtags & Mentions ✅ NEW
+- [x] Hashtag model with usage count
+- [x] Parse hashtags from content
+- [x] PostHashtag join table
+- [x] PostMention join table
+- [x] Get posts by hashtag query
+- [x] Mention notifications
+
+### Phase 10: Search ✅ NEW
+- [x] Search users query
+- [x] Search posts query
+- [x] Search hashtags query
+- [x] Trending hashtags query
+
+### Phase 11: Guest Access ✅ NEW
+- [x] Public post viewing
+- [x] Public profile viewing
+- [x] Public search
+- [x] Private account handling
+
 ---
 
 ## 🚧 Next Steps
 
-### Phase 6: Thread/Post Feature
-- [ ] Thread model in Prisma schema
-- [ ] Thread typeDefs and resolvers
-- [ ] Create thread mutation
-- [ ] Get threads query (with pagination)
-- [ ] Get user's threads query
-- [ ] Thread detail page
-- [ ] Create thread form
-
-### Phase 7: Social Features
-- [ ] Like model (user-thread relation)
-- [ ] Like/Unlike mutations
-- [ ] Like count on threads
-- [ ] Follow model (user-user relation)
-- [ ] Follow/Unfollow mutations
-- [ ] Follower/Following counts
-- [ ] Feed query (threads from followed users)
-
-### Phase 8: Comments
-- [ ] Comment model
-- [ ] Add comment mutation
-- [ ] Delete comment mutation
-- [ ] Comments on thread detail
-- [ ] Comment count
-
-### Phase 9: Profile Enhancement
-- [ ] Profile edit mutation
+### Phase 12: Profile Enhancement
+- [ ] Profile edit page (frontend)
 - [ ] Image upload (Cloudinary/S3)
 - [ ] Profile image display
-- [ ] Edit profile page
 
-### Phase 10: Production Readiness
+### Phase 13: Production Readiness
 - [ ] Input validation (Zod)
 - [ ] Rate limiting
 - [ ] Error handling middleware
 - [ ] Logging (Pino)
-- [ ] Health check endpoint
 - [ ] Dockerfiles for production
 - [ ] CI/CD with GitHub Actions
 
-### Phase 11: Advanced Features
+### Phase 14: Advanced Features
 - [ ] Real-time notifications (GraphQL Subscriptions)
-- [ ] Search (users and threads)
-- [ ] Hashtags
-- [ ] Mentions (@username)
 - [ ] Direct messages
+- [ ] Repost functionality
 
 ---
 
@@ -111,9 +131,12 @@
 | Authentication | ✅ Complete | 100% |
 | Frontend App | ✅ Complete | 100% |
 | Documentation | ✅ Complete | 100% |
-| Threads/Posts | 🔜 Next | 0% |
-| Social Features | ⏳ Planned | 0% |
-| Comments | ⏳ Planned | 0% |
-| Profile Enhancement | ⏳ Planned | 0% |
+| Thread/Post | ✅ Complete | 100% |
+| Social Features | ✅ Complete | 100% |
+| Bookmarks | ✅ Complete | 100% |
+| Hashtags & Mentions | ✅ Complete | 100% |
+| Search | ✅ Complete | 100% |
+| Guest Access | ✅ Complete | 100% |
+| Profile Enhancement | 🔜 Next | 0% |
 | Production Ready | ⏳ Planned | 0% |
 | Advanced Features | ⏳ Planned | 0% |

@@ -175,7 +175,7 @@ export const userService = {
     const [followersCount, followingCount, postsCount] = await Promise.all([
       prisma.follow.count({ where: { followingId: userId } }),
       prisma.follow.count({ where: { followerId: userId } }),
-      Promise.resolve(0), // TODO: Add posts count when Post model is available
+      prisma.post.count({ where: { authorId: userId, parentPostId: null } }),
     ]);
 
     return {
@@ -473,6 +473,70 @@ export const userService = {
     await prisma.refreshToken.deleteMany({
       where: { userId },
     });
+    return true;
+  },
+
+  // Forgot Password - Generate reset token
+  async forgotPassword(email: string): Promise<boolean> {
+    const user = await this.getUserByEmail(email);
+    if (!user) return true; // Return true to prevent email enumeration
+
+    // Delete any existing reset tokens for this user
+    await prisma.passwordResetToken.deleteMany({
+      where: { userId: user.id },
+    });
+
+    const token = generateRandomToken();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1); // Token expires in 1 hour
+
+    await prisma.passwordResetToken.create({
+      data: {
+        token,
+        userId: user.id,
+        expiresAt,
+      },
+    });
+
+    // In a real app, you would send this token via email.
+    console.log(`[PASS_RESET] Token for ${email}: ${token}`);
+
+    return true;
+  },
+
+  // Reset Password - Verify token and update password
+  async resetPassword(token: string, newPassword: string): Promise<boolean> {
+    const storedToken = await prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!storedToken) {
+      throw Errors.invalidToken("Invalid or expired reset token");
+    }
+
+    if (storedToken.expiresAt < new Date()) {
+      await prisma.passwordResetToken.delete({ where: { id: storedToken.id } });
+      throw Errors.tokenExpired("Reset token expired");
+    }
+
+    const salt = randomBytes(32).toString("hex");
+    const hashedPassword = generateHash(newPassword, salt);
+
+    await prisma.user.update({
+      where: { id: storedToken.userId },
+      data: {
+        password: hashedPassword,
+        salt,
+      },
+    });
+
+    // Delete the used token
+    await prisma.passwordResetToken.delete({ where: { id: storedToken.id } });
+
+    // Also invalidate all refresh tokens (logout from all devices after password change)
+    await this.logoutAll(storedToken.userId);
+
     return true;
   },
 };

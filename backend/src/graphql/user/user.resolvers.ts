@@ -38,13 +38,12 @@ export const userResolvers = {
       return userService.getUserById(args.id);
     },
 
-    // Protected: Get user by username
+    // Public: Get user by username (guests can view profiles)
     getUserByUsername: async (
       _: unknown,
       args: { username: string },
-      context: GraphQLContext
+      _context: GraphQLContext
     ) => {
-      requireAuth(context);
       return userService.getUserByUsername(args.username);
     },
 
@@ -246,6 +245,18 @@ export const userResolvers = {
     ) => {
       const user = requireAuth(context);
       return userService.markAllNotificationsAsRead(user.id);
+    },
+
+    // Password Recovery
+    forgotPassword: async (_: unknown, args: { email: string }) => {
+      return userService.forgotPassword(args.email);
+    },
+
+    resetPassword: async (
+      _: unknown,
+      args: { token: string; newPassword: string }
+    ) => {
+      return userService.resetPassword(args.token, args.newPassword);
     },
   },
 };

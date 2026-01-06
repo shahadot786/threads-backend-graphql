@@ -66,6 +66,7 @@ export const userTypeDefs = /* GraphQL */ `
     REPLY
     FOLLOW
     MENTION
+    REPOST
   }
 
   type Notification {
@@ -76,6 +77,20 @@ export const userTypeDefs = /* GraphQL */ `
     entityId: ID
     isRead: Boolean!
     createdAt: String!
+  }
+
+  # =========================
+  # Pagination
+  # =========================
+
+  type UserEdge {
+    cursor: String!
+    node: User!
+  }
+
+  type UserConnection {
+    edges: [UserEdge!]!
+    pageInfo: PageInfo!
   }
 
   # =========================
@@ -98,22 +113,22 @@ export const userTypeDefs = /* GraphQL */ `
   # Queries
   # =========================
 
-  type Query {
-    # User queries
+  extend type Query {
+    # User queries (PROTECTED except getUserByUsername)
     getUsers: [User!]!
     getUserById(id: ID!): User
     getUserByUsername(username: String!): User
     getUserByEmail(email: String): User
     getCurrentLoggedInUser: User
 
-    # Follow queries
+    # Follow queries (PROTECTED)
     getFollowers(userId: ID!): [User!]!
     getFollowing(userId: ID!): [User!]!
 
-    # Block queries
+    # Block queries (PROTECTED)
     getBlockedUsers: [User!]!
 
-    # Notifications
+    # Notifications (PROTECTED)
     getMyNotifications: [Notification!]!
   }
 
@@ -121,8 +136,8 @@ export const userTypeDefs = /* GraphQL */ `
   # Mutations
   # =========================
 
-  type Mutation {
-    # User
+  extend type Mutation {
+    # User (PUBLIC for createUser)
     createUser(
       firstName: String!
       lastName: String
@@ -140,15 +155,19 @@ export const userTypeDefs = /* GraphQL */ `
     logout: Boolean!
     logoutAll: Boolean!
 
-    # Follow
+    # Password Recovery
+    forgotPassword(email: String!): Boolean!
+    resetPassword(token: String!, newPassword: String!): Boolean!
+
+    # Follow (PROTECTED)
     followUser(userId: ID!): Boolean!
     unfollowUser(userId: ID!): Boolean!
 
-    # Block
+    # Block (PROTECTED)
     blockUser(userId: ID!): Boolean!
     unblockUser(userId: ID!): Boolean!
 
-    # Notifications
+    # Notifications (PROTECTED)
     markNotificationAsRead(notificationId: ID!): Boolean!
     markAllNotificationsAsRead: Boolean!
   }

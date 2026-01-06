@@ -1,21 +1,16 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ApolloWrapper } from "@/components/apollo-wrapper";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { Providers } from "@/components/providers/Providers";
 
 export const metadata: Metadata = {
-  title: "Threads App",
-  description: "A modern social threads application",
+  title: "Threads",
+  description: "Share your thoughts and connect with others",
+  keywords: ["threads", "social", "posts", "community"],
+  openGraph: {
+    title: "Threads",
+    description: "Share your thoughts and connect with others",
+    type: "website",
+  },
 };
 
 export default function RootLayout({
@@ -24,11 +19,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <ApolloWrapper>{children}</ApolloWrapper>
+    <html lang="en" suppressHydrationWarning>
+      <body className="antialiased">
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
