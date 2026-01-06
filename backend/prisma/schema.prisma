@@ -12,13 +12,29 @@ model User {
   id              String         @id @default(uuid())
   firstName       String         @map("first_name")
   lastName        String?        @map("last_name")
+  username        String         @unique
   profileImageUrl String?        @map("profile_image_url")
   email           String         @unique
   password        String
   salt            String
+  is_verified     Boolean        @default(false)
+  is_private      Boolean        @default(false)
+  status          String?
+  bio             String?
+  website         String?
+  location        String?
+  dob             DateTime?
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
-  refreshTokens   RefreshToken[]
+
+  // Relations
+  refreshTokens        RefreshToken[]
+  followers            Follow[]       @relation("following")
+  following            Follow[]       @relation("follower")
+  blockedUsers         Block[]        @relation("blocker")
+  blockedBy            Block[]        @relation("blocked")
+  notificationsReceived Notification[] @relation("user")
+  notificationsSent    Notification[] @relation("actor")
 
   @@map("users")
 }
@@ -33,4 +49,53 @@ model RefreshToken {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("refresh_tokens")
+}
+
+// Follow relationship
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String   @map("follower_id")
+  followingId String   @map("following_id")
+  follower    User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+// Block relationship
+model Block {
+  id        String   @id @default(uuid())
+  blockerId String   @map("blocker_id")
+  blockedId String   @map("blocked_id")
+  blocker   User     @relation("blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([blockerId, blockedId])
+  @@map("blocks")
+}
+
+// Notification types enum
+enum NotificationType {
+  LIKE
+  REPLY
+  FOLLOW
+  MENTION
+}
+
+// Notifications table
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  actorId   String           @map("actor_id")
+  type      NotificationType
+  entityId  String?          @map("entity_id")
+  isRead    Boolean          @default(false) @map("is_read")
+  user      User             @relation("user", fields: [userId], references: [id], onDelete: Cascade)
+  actor     User             @relation("actor", fields: [actorId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@map("notifications")
 }

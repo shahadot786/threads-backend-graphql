@@ -1,5 +1,6 @@
 import JWT from "jsonwebtoken";
 import { userService } from "./user/user.service.js";
+import { Errors } from "./errors.js";
 import type { User } from "../../generated/prisma/client.js";
 import type { Request, Response } from "express";
 
@@ -24,8 +25,8 @@ export const COOKIE_OPTIONS = {
   path: "/",
 };
 
-export const ACCESS_TOKEN_COOKIE = "access_token";
-export const REFRESH_TOKEN_COOKIE = "refresh_token";
+export const ACCESS_TOKEN_COOKIE = "__threads_graphql_demo_access_token";
+export const REFRESH_TOKEN_COOKIE = "__threads_graphql_demo_refresh_token";
 
 export async function createContext(
   req: Request,
@@ -56,7 +57,7 @@ export async function createContext(
 // Helper to check if user is authenticated
 export function requireAuth(context: GraphQLContext): User {
   if (!context.user) {
-    throw new Error("You must be logged in to perform this action");
+    throw Errors.unauthenticated();
   }
   return context.user;
 }
@@ -76,7 +77,7 @@ export function setAuthCookies(
   // Refresh token - longer expiry
   res.cookie(REFRESH_TOKEN_COOKIE, refreshToken, {
     ...COOKIE_OPTIONS,
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: 120 * 24 * 60 * 60 * 1000, // 120 days
   });
 }
 

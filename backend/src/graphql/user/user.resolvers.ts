@@ -2,6 +2,7 @@ import {
   userService,
   type CreateUserData,
   type LoginPayload,
+  type UpdateUserProfileInput,
 } from "./user.service.js";
 import {
   requireAuth,
@@ -10,8 +11,16 @@ import {
   clearAuthCookies,
   REFRESH_TOKEN_COOKIE,
 } from "../context.js";
+import { Errors } from "../errors.js";
 
 export const userResolvers = {
+  // Field resolvers for User type
+  User: {
+    stats: async (parent: { id: string }) => {
+      return userService.getUserStats(parent.id);
+    },
+  },
+
   Query: {
     // Protected: Get all users
     getUsers: async (_: unknown, __: unknown, context: GraphQLContext) => {
@@ -27,6 +36,16 @@ export const userResolvers = {
     ) => {
       requireAuth(context);
       return userService.getUserById(args.id);
+    },
+
+    // Protected: Get user by username
+    getUserByUsername: async (
+      _: unknown,
+      args: { username: string },
+      context: GraphQLContext
+    ) => {
+      requireAuth(context);
+      return userService.getUserByUsername(args.username);
     },
 
     // Protected: Get user by email
@@ -47,12 +66,62 @@ export const userResolvers = {
     ) => {
       return requireAuth(context);
     },
+
+    // Protected: Get followers of a user
+    getFollowers: async (
+      _: unknown,
+      args: { userId: string },
+      context: GraphQLContext
+    ) => {
+      requireAuth(context);
+      return userService.getFollowers(args.userId);
+    },
+
+    // Protected: Get users that a user is following
+    getFollowing: async (
+      _: unknown,
+      args: { userId: string },
+      context: GraphQLContext
+    ) => {
+      requireAuth(context);
+      return userService.getFollowing(args.userId);
+    },
+
+    // Protected: Get blocked users
+    getBlockedUsers: async (
+      _: unknown,
+      __: unknown,
+      context: GraphQLContext
+    ) => {
+      const user = requireAuth(context);
+      return userService.getBlockedUsers(user.id);
+    },
+
+    // Protected: Get my notifications
+    getMyNotifications: async (
+      _: unknown,
+      __: unknown,
+      context: GraphQLContext
+    ) => {
+      const user = requireAuth(context);
+      return userService.getMyNotifications(user.id);
+    },
   },
 
   Mutation: {
     // Public: Create user (registration)
     createUser: async (_: unknown, args: CreateUserData) => {
       return userService.createUser(args);
+    },
+
+    // Protected: Update user profile
+    updateUserProfile: async (
+      _: unknown,
+      args: { input: UpdateUserProfileInput },
+      context: GraphQLContext
+    ) => {
+      const user = requireAuth(context);
+      return userService.updateUserProfile(user.id, args.input);
     },
 
     // Public: Login
@@ -81,7 +150,7 @@ export const userResolvers = {
       const refreshTokenValue = context.req.cookies?.[REFRESH_TOKEN_COOKIE];
 
       if (!refreshTokenValue) {
-        throw new Error("No refresh token provided");
+        throw Errors.unauthenticated("No refresh token provided");
       }
 
       const { accessToken, refreshToken: newRefreshToken } =
@@ -117,6 +186,66 @@ export const userResolvers = {
       await userService.logoutAll(user.id);
       clearAuthCookies(context.res);
       return true;
+    },
+
+    // Protected: Follow a user
+    followUser: async (
+      _: unknown,
+      args: { userId: string },
+      context: GraphQLContext
+    ) => {
+      const user = requireAuth(context);
+      return userService.followUser(user.id, args.userId);
+    },
+
+    // Protected: Unfollow a user
+    unfollowUser: async (
+      _: unknown,
+      args: { userId: string },
+      context: GraphQLContext
+    ) => {
+      const user = requireAuth(context);
+      return userService.unfollowUser(user.id, args.userId);
+    },
+
+    // Protected: Block a user
+    blockUser: async (
+      _: unknown,
+      args: { userId: string },
+      context: GraphQLContext
+    ) => {
+      const user = requireAuth(context);
+      return userService.blockUser(user.id, args.userId);
+    },
+
+    // Protected: Unblock a user
+    unblockUser: async (
+      _: unknown,
+      args: { userId: string },
+      context: GraphQLContext
+    ) => {
+      const user = requireAuth(context);
+      return userService.unblockUser(user.id, args.userId);
+    },
+
+    // Protected: Mark notification as read
+    markNotificationAsRead: async (
+      _: unknown,
+      args: { notificationId: string },
+      context: GraphQLContext
+    ) => {
+      const user = requireAuth(context);
+      return userService.markNotificationAsRead(user.id, args.notificationId);
+    },
+
+    // Protected: Mark all notifications as read
+    markAllNotificationsAsRead: async (
+      _: unknown,
+      __: unknown,
+      context: GraphQLContext
+    ) => {
+      const user = requireAuth(context);
+      return userService.markAllNotificationsAsRead(user.id);
     },
   },
 };

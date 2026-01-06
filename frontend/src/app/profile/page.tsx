@@ -29,23 +29,23 @@ export default function ProfilePage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!loading && !user && !error) {
-      router.push("/login");
+      router.replace("/login");
     }
   }, [loading, user, error, router]);
 
   const handleLogout = async () => {
     try {
       await logout();
-      router.push("/login");
+      router.replace("/login");
     } catch (err) {
       console.error("Logout failed:", err);
-      router.push("/login");
+      router.replace("/login");
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-gray-900 via-gray-800 to-gray-900">
         <div className="animate-pulse">
           <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
@@ -58,12 +58,12 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div className="min-h-screen bg-linear-to-br from-gray-900 via-gray-800 to-gray-900">
       {/* Header */}
       <header className="border-b border-gray-700 bg-gray-800/50 backdrop-blur-lg sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
           <Link href="/" className="text-2xl font-bold text-white">
-            <span className="bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+            <span className="bg-linear-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
               Threads
             </span>
           </Link>
@@ -76,7 +76,7 @@ export default function ProfilePage() {
             </Link>
             <button
               onClick={handleLogout}
-              className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition"
+              className="px-4 py-2 text-sm font-medium text-gray-300 hover:text-white transition cursor-pointer"
             >
               Logout
             </button>
@@ -91,7 +91,7 @@ export default function ProfilePage() {
           <div className="bg-gray-800/50 backdrop-blur-lg rounded-2xl border border-gray-700 p-8">
             <div className="flex flex-col md:flex-row items-center gap-6">
               {/* Avatar */}
-              <div className="w-32 h-32 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-5xl font-bold shadow-lg shadow-purple-500/25">
+              <div className="w-32 h-32 rounded-full bg-linear-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white text-5xl font-bold shadow-lg shadow-purple-500/25">
                 {user.firstName[0]}
                 {user.lastName?.[0] || ""}
               </div>
@@ -106,7 +106,7 @@ export default function ProfilePage() {
                   <span className="px-4 py-2 bg-gray-700/50 rounded-full text-gray-300 text-sm">
                     🎉 Member since 2026
                   </span>
-                  <span className="px-4 py-2 bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-full text-blue-400 text-sm">
+                  <span className="px-4 py-2 bg-linear-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-full text-blue-400 text-sm">
                     ✨ Early Adopter
                   </span>
                 </div>
@@ -132,7 +132,9 @@ export default function ProfilePage() {
 
           {/* Profile Details */}
           <div className="bg-gray-800/50 backdrop-blur-lg rounded-2xl border border-gray-700 p-6">
-            <h2 className="text-xl font-semibold text-white mb-6">Profile Details</h2>
+            <h2 className="text-xl font-semibold text-white mb-6">
+              Profile Details
+            </h2>
             <div className="space-y-4">
               <div className="flex items-center justify-between py-3 border-b border-gray-700">
                 <span className="text-gray-400">User ID</span>
@@ -158,9 +160,12 @@ export default function ProfilePage() {
           {/* Coming Soon */}
           <div className="bg-gray-800/50 backdrop-blur-lg rounded-2xl border border-gray-700 p-8 text-center">
             <div className="text-5xl mb-4">🚧</div>
-            <h2 className="text-xl font-bold text-white mb-2">Profile Editing Coming Soon</h2>
+            <h2 className="text-xl font-bold text-white mb-2">
+              Profile Editing Coming Soon
+            </h2>
             <p className="text-gray-400">
-              You&apos;ll be able to edit your profile, upload a photo, and more!
+              You&apos;ll be able to edit your profile, upload a photo, and
+              more!
             </p>
           </div>
         </div>

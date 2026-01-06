@@ -1,10 +1,12 @@
 import { randomBytes, createHmac } from "crypto";
 import { prisma } from "../../lib/prisma.js";
 import JWT from "jsonwebtoken";
+import { Errors } from "../errors.js";
 
 export interface CreateUserData {
   firstName: string;
   lastName?: string;
+  username?: string;
   profileImageUrl?: string;
   email: string;
   password: string;
@@ -18,6 +20,18 @@ export interface LoginPayload {
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
+}
+
+export interface UpdateUserProfileInput {
+  firstName?: string;
+  lastName?: string;
+  username?: string;
+  bio?: string;
+  website?: string;
+  location?: string;
+  dob?: string;
+  profileImageUrl?: string;
+  is_private?: boolean;
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -34,16 +48,74 @@ function generateRandomToken(): string {
   return randomBytes(40).toString("hex");
 }
 
+// Generate a unique username based on firstName and lastName
+async function generateUniqueUsername(firstName: string, lastName?: string): Promise<string> {
+  // Create base username from firstName and lastName (lowercase, no spaces)
+  const baseName = `${firstName}${lastName || ""}`.toLowerCase().replace(/\s+/g, "");
+
+  let username = baseName;
+  let isUnique = false;
+  let attempts = 0;
+  const maxAttempts = 10;
+
+  while (!isUnique && attempts < maxAttempts) {
+    // Check if username exists
+    const existingUser = await prisma.user.findUnique({
+      where: { username },
+    });
+
+    if (!existingUser) {
+      isUnique = true;
+    } else {
+      // Add random 4-digit number to make it unique
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      username = `${baseName}${randomNum}`;
+      attempts++;
+    }
+  }
+
+  // If still not unique after max attempts, use timestamp
+  if (!isUnique) {
+    username = `${baseName}${Date.now()}`;
+  }
+
+  return username;
+}
+
+// Check if username is unique (for updates)
+async function isUsernameUnique(username: string, excludeUserId?: string): Promise<boolean> {
+  const existingUser = await prisma.user.findUnique({
+    where: { username },
+  });
+
+  if (!existingUser) return true;
+  if (excludeUserId && existingUser.id === excludeUserId) return true;
+  return false;
+}
+
 export const userService = {
   // Create new user
   async createUser(data: CreateUserData) {
     const salt = randomBytes(32).toString("hex");
     const hashedPassword = generateHash(data.password, salt);
 
+    // Generate username if not provided
+    let username = data.username;
+    if (!username) {
+      username = await generateUniqueUsername(data.firstName, data.lastName);
+    } else {
+      // Verify provided username is unique
+      const isUnique = await isUsernameUnique(username);
+      if (!isUnique) {
+        throw Errors.conflict("Username already taken");
+      }
+    }
+
     return prisma.user.create({
       data: {
         firstName: data.firstName,
         lastName: data.lastName ?? null,
+        username,
         profileImageUrl: data.profileImageUrl ?? null,
         email: data.email,
         password: hashedPassword,
@@ -67,16 +139,235 @@ export const userService = {
     return prisma.user.findUnique({ where: { email } });
   },
 
+  // Get user by username
+  async getUserByUsername(username: string) {
+    return prisma.user.findUnique({ where: { username } });
+  },
+
+  // Update user profile
+  async updateUserProfile(userId: string, input: UpdateUserProfileInput) {
+    // Verify username uniqueness if being updated
+    if (input.username !== undefined) {
+      const isUnique = await isUsernameUnique(input.username, userId);
+      if (!isUnique) {
+        throw Errors.conflict("Username already taken");
+      }
+    }
+
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(input.firstName !== undefined && { firstName: input.firstName }),
+        ...(input.lastName !== undefined && { lastName: input.lastName }),
+        ...(input.username !== undefined && { username: input.username }),
+        ...(input.bio !== undefined && { bio: input.bio }),
+        ...(input.website !== undefined && { website: input.website }),
+        ...(input.location !== undefined && { location: input.location }),
+        ...(input.dob !== undefined && { dob: input.dob ? new Date(input.dob) : null }),
+        ...(input.profileImageUrl !== undefined && { profileImageUrl: input.profileImageUrl }),
+        ...(input.is_private !== undefined && { is_private: input.is_private }),
+      },
+    });
+  },
+
+  // Get user stats
+  async getUserStats(userId: string) {
+    const [followersCount, followingCount, postsCount] = await Promise.all([
+      prisma.follow.count({ where: { followingId: userId } }),
+      prisma.follow.count({ where: { followerId: userId } }),
+      Promise.resolve(0), // TODO: Add posts count when Post model is available
+    ]);
+
+    return {
+      followersCount,
+      followingCount,
+      postsCount,
+    };
+  },
+
+  // Follow a user
+  async followUser(followerId: string, userId: string) {
+    if (followerId === userId) {
+      throw Errors.badRequest("You cannot follow yourself");
+    }
+
+    const existingFollow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId: userId,
+        },
+      },
+    });
+
+    if (existingFollow) {
+      throw Errors.conflict("Already following this user");
+    }
+
+    await prisma.follow.create({
+      data: {
+        followerId,
+        followingId: userId,
+      },
+    });
+
+    // Create notification for the followed user
+    await prisma.notification.create({
+      data: {
+        userId,
+        actorId: followerId,
+        type: "FOLLOW",
+      },
+    });
+
+    return true;
+  },
+
+  // Unfollow a user
+  async unfollowUser(followerId: string, userId: string) {
+    await prisma.follow.delete({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId: userId,
+        },
+      },
+    });
+
+    return true;
+  },
+
+  // Get followers of a user
+  async getFollowers(userId: string) {
+    const follows = await prisma.follow.findMany({
+      where: { followingId: userId },
+      include: { follower: true },
+    });
+
+    return follows.map((f) => f.follower);
+  },
+
+  // Get users that a user is following
+  async getFollowing(userId: string) {
+    const follows = await prisma.follow.findMany({
+      where: { followerId: userId },
+      include: { following: true },
+    });
+
+    return follows.map((f) => f.following);
+  },
+
+  // Block a user
+  async blockUser(blockerId: string, userId: string) {
+    if (blockerId === userId) {
+      throw Errors.badRequest("You cannot block yourself");
+    }
+
+    const existingBlock = await prisma.block.findUnique({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId: userId,
+        },
+      },
+    });
+
+    if (existingBlock) {
+      throw Errors.conflict("Already blocked this user");
+    }
+
+    await prisma.block.create({
+      data: {
+        blockerId,
+        blockedId: userId,
+      },
+    });
+
+    // Also unfollow each other if following
+    await prisma.follow.deleteMany({
+      where: {
+        OR: [
+          { followerId: blockerId, followingId: userId },
+          { followerId: userId, followingId: blockerId },
+        ],
+      },
+    });
+
+    return true;
+  },
+
+  // Unblock a user
+  async unblockUser(blockerId: string, userId: string) {
+    await prisma.block.delete({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId: userId,
+        },
+      },
+    });
+
+    return true;
+  },
+
+  // Get blocked users
+  async getBlockedUsers(blockerId: string) {
+    const blocks = await prisma.block.findMany({
+      where: { blockerId },
+      include: { blocked: true },
+    });
+
+    return blocks.map((b) => b.blocked);
+  },
+
+  // Get notifications for a user
+  async getMyNotifications(userId: string) {
+    return prisma.notification.findMany({
+      where: { userId },
+      include: {
+        user: true,
+        actor: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  },
+
+  // Mark notification as read
+  async markNotificationAsRead(userId: string, notificationId: string) {
+    const notification = await prisma.notification.findUnique({
+      where: { id: notificationId },
+    });
+
+    if (!notification || notification.userId !== userId) {
+      throw Errors.notFound("Notification");
+    }
+
+    await prisma.notification.update({
+      where: { id: notificationId },
+      data: { isRead: true },
+    });
+
+    return true;
+  },
+
+  // Mark all notifications as read
+  async markAllNotificationsAsRead(userId: string) {
+    await prisma.notification.updateMany({
+      where: { userId, isRead: false },
+      data: { isRead: true },
+    });
+
+    return true;
+  },
+
   // Generate access token
   generateAccessToken(userId: string, email: string): string {
     if (!JWT_SECRET) {
-      throw new Error("JWT_SECRET is not configured");
+      throw Errors.internalError("JWT_SECRET is not configured");
     }
-    return JWT.sign(
-      { id: userId, email },
-      JWT_SECRET,
-      { expiresIn: ACCESS_TOKEN_EXPIRES } as JWT.SignOptions
-    );
+    return JWT.sign({ id: userId, email }, JWT_SECRET, {
+      expiresIn: ACCESS_TOKEN_EXPIRES,
+    } as JWT.SignOptions);
   },
 
   // Generate refresh token and save to DB
@@ -97,18 +388,22 @@ export const userService = {
   },
 
   // Login and generate tokens
-  async login(payload: LoginPayload): Promise<TokenPair & { user: { id: string; email: string; firstName: string } }> {
+  async login(
+    payload: LoginPayload
+  ): Promise<
+    TokenPair & { user: { id: string; email: string; firstName: string } }
+  > {
     const { email, password } = payload;
     const user = await this.getUserByEmail(email);
 
     if (!user) {
-      throw new Error("Invalid email or password");
+      throw Errors.unauthenticated("Invalid email or password");
     }
 
     const hashedPassword = generateHash(password, user.salt);
 
     if (hashedPassword !== user.password) {
-      throw new Error("Invalid email or password");
+      throw Errors.unauthenticated("Invalid email or password");
     }
 
     const accessToken = this.generateAccessToken(user.id, user.email);
@@ -134,21 +429,26 @@ export const userService = {
     });
 
     if (!storedToken) {
-      throw new Error("Invalid refresh token");
+      throw Errors.invalidToken("Invalid refresh token");
     }
 
     // Check if expired
     if (storedToken.expiresAt < new Date()) {
       await prisma.refreshToken.delete({ where: { id: storedToken.id } });
-      throw new Error("Refresh token expired");
+      throw Errors.tokenExpired("Refresh token expired");
     }
 
     // Delete old refresh token (rotation)
     await prisma.refreshToken.delete({ where: { id: storedToken.id } });
 
     // Generate new tokens
-    const accessToken = this.generateAccessToken(storedToken.user.id, storedToken.user.email);
-    const newRefreshToken = await this.generateRefreshToken(storedToken.user.id);
+    const accessToken = this.generateAccessToken(
+      storedToken.user.id,
+      storedToken.user.email
+    );
+    const newRefreshToken = await this.generateRefreshToken(
+      storedToken.user.id
+    );
 
     return {
       accessToken,

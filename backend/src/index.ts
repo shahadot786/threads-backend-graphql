@@ -12,18 +12,20 @@ async function startServer() {
 
   // Cookie parser
   app.use(cookieParser());
-
-  // CORS configuration
-  app.use(cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    credentials: true,
-  }));
-
-  app.get("/", (req, res) => {
-    res.json({ message: "Hello, Threads App Backend!" });
-  });
-
+  // JSON body parser
   app.use(express.json());
+  // CORS configuration
+  app.use(
+    cors({
+      origin: process.env.FRONTEND_URL || "http://localhost:3000",
+      credentials: true,
+    })
+  );
+
+  //health check endpoint
+  app.get("/health", (req, res) => {
+    res.json({ message: "Server is running!" });
+  });
 
   app.use(
     "/graphql",
@@ -35,7 +37,9 @@ async function startServer() {
   );
 
   app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`Server is running on http://localhost:${PORT}`);
+    }
   });
 }
 
