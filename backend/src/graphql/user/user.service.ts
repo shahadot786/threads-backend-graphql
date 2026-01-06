@@ -175,7 +175,7 @@ export const userService = {
     const [followersCount, followingCount, postsCount] = await Promise.all([
       prisma.follow.count({ where: { followingId: userId } }),
       prisma.follow.count({ where: { followerId: userId } }),
-      Promise.resolve(0), // TODO: Add posts count when Post model is available
+      prisma.post.count({ where: { authorId: userId, parentPostId: null } }),
     ]);
 
     return {

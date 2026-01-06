@@ -7,6 +7,37 @@ datasource db {
   provider = "postgresql"
 }
 
+// =====================
+// ENUMS
+// =====================
+
+// Notification types enum
+enum NotificationType {
+  LIKE
+  REPLY
+  FOLLOW
+  MENTION
+  REPOST
+}
+
+// Post visibility enum
+enum PostVisibility {
+  PUBLIC
+  FOLLOWERS
+  PRIVATE
+}
+
+// Media type enum
+enum MediaType {
+  IMAGE
+  VIDEO
+  GIF
+}
+
+// =====================
+// USER & AUTH
+// =====================
+
 // Users table
 model User {
   id              String         @id @default(uuid())
@@ -27,14 +58,24 @@ model User {
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  // Relations
-  refreshTokens        RefreshToken[]
-  followers            Follow[]       @relation("following")
-  following            Follow[]       @relation("follower")
-  blockedUsers         Block[]        @relation("blocker")
-  blockedBy            Block[]        @relation("blocked")
+  // Auth Relations
+  refreshTokens RefreshToken[]
+
+  // Social Relations
+  followers    Follow[] @relation("following")
+  following    Follow[] @relation("follower")
+  blockedUsers Block[]  @relation("blocker")
+  blockedBy    Block[]  @relation("blocked")
+
+  // Notification Relations
   notificationsReceived Notification[] @relation("user")
-  notificationsSent    Notification[] @relation("actor")
+  notificationsSent     Notification[] @relation("actor")
+
+  // Post Relations
+  posts       Post[]
+  likes       PostLike[]
+  bookmarks   Bookmark[]
+  mentionedIn PostMention[] @relation("mentionedUser")
 
   @@map("users")
 }
@@ -50,6 +91,10 @@ model RefreshToken {
 
   @@map("refresh_tokens")
 }
+
+// =====================
+// SOCIAL RELATIONSHIPS
+// =====================
 
 // Follow relationship
 model Follow {
@@ -77,14 +122,6 @@ model Block {
   @@map("blocks")
 }
 
-// Notification types enum
-enum NotificationType {
-  LIKE
-  REPLY
-  FOLLOW
-  MENTION
-}
-
 // Notifications table
 model Notification {
   id        String           @id @default(uuid())
@@ -98,4 +135,123 @@ model Notification {
   createdAt DateTime         @default(now()) @map("created_at")
 
   @@map("notifications")
+}
+
+// =====================
+// POSTS / THREADS
+// =====================
+
+// Posts table (main content)
+model Post {
+  id           String         @id @default(uuid())
+  content      String?        @db.Text
+  visibility   PostVisibility @default(PUBLIC)
+  authorId     String         @map("author_id")
+  author       User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentPostId String?        @map("parent_post_id")
+  parentPost   Post?          @relation("PostReplies", fields: [parentPostId], references: [id], onDelete: SetNull)
+  replies      Post[]         @relation("PostReplies")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  // Post Relations
+  likes     PostLike[]
+  bookmarks Bookmark[]
+  media     PostMedia[]
+  hashtags  PostHashtag[]
+  mentions  PostMention[]
+
+  @@index([authorId])
+  @@index([parentPostId])
+  @@index([createdAt])
+  @@map("posts")
+}
+
+// Post media attachments
+model PostMedia {
+  id        String    @id @default(uuid())
+  postId    String    @map("post_id")
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  mediaType MediaType
+  mediaUrl  String    @map("media_url")
+  position  Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@map("post_media")
+}
+
+// =====================
+// LIKES & BOOKMARKS
+// =====================
+
+// Post likes (user favorites)
+model PostLike {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  postId    String   @map("post_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@map("post_likes")
+}
+
+// Bookmarks (saved posts)
+model Bookmark {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  postId    String   @map("post_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, postId])
+  @@index([userId])
+  @@map("bookmarks")
+}
+
+// =====================
+// HASHTAGS
+// =====================
+
+// Hashtags table
+model Hashtag {
+  id         String        @id @default(uuid())
+  tag        String        @unique
+  usageCount Int           @default(0) @map("usage_count")
+  posts      PostHashtag[]
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  @@map("hashtags")
+}
+
+// Post-Hashtag join table
+model PostHashtag {
+  id        String  @id @default(uuid())
+  postId    String  @map("post_id")
+  hashtagId String  @map("hashtag_id")
+  post      Post    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  hashtag   Hashtag @relation(fields: [hashtagId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, hashtagId])
+  @@index([hashtagId])
+  @@map("post_hashtags")
+}
+
+// =====================
+// MENTIONS
+// =====================
+
+// Post mentions (@ mentions)
+model PostMention {
+  id              String @id @default(uuid())
+  postId          String @map("post_id")
+  mentionedUserId String @map("mentioned_user_id")
+  post            Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  mentionedUser   User   @relation("mentionedUser", fields: [mentionedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, mentionedUserId])
+  @@map("post_mentions")
 }

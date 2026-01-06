@@ -38,13 +38,12 @@ export const userResolvers = {
       return userService.getUserById(args.id);
     },
 
-    // Protected: Get user by username
+    // Public: Get user by username (guests can view profiles)
     getUserByUsername: async (
       _: unknown,
       args: { username: string },
-      context: GraphQLContext
+      _context: GraphQLContext
     ) => {
-      requireAuth(context);
       return userService.getUserByUsername(args.username);
     },
 
