@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/auth";
@@ -16,7 +16,7 @@ import {
   Pin,
   Menu
 } from "lucide-react";
-import { ThemeToggle } from "./ThemeToggle";
+import { SettingsMenu } from "./SettingsMenu";
 
 interface NavItemProps {
   href: string;
@@ -69,6 +69,23 @@ export function Sidebar() {
   const user = useAuthStore(state => state.user);
   const openCreatePost = useUIStore(state => state.openCreatePost);
   const openLoginModal = useUIStore(state => state.openLoginModal);
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    if (showMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showMenu]);
 
   const handleCreateClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -113,14 +130,27 @@ export function Sidebar() {
         </nav>
 
         {/* Bottom Actions */}
-        <div className="mt-auto flex flex-col items-center gap-2 pb-2 w-full px-2">
-          <ThemeToggle />
+        <div className="mt-auto flex flex-col items-center gap-2 pb-2 w-full px-2 relative" ref={menuRef}>
+          {showMenu && (
+            <div className="absolute bottom-full left-4 mb-2 z-50 w-64 bg-card border border-border rounded-2xl shadow-2xl animate-scale-in origin-bottom-left p-1.5">
+              <SettingsMenu onClose={() => setShowMenu(false)} />
+            </div>
+          )}
 
           <button className="p-3 rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-300" aria-label="Pinned Threads">
             <Pin size={24} />
           </button>
 
-          <button className="p-3 rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-300" aria-label="More">
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className={cn(
+              "p-3 rounded-xl transition-all duration-300",
+              showMenu
+                ? "bg-secondary text-foreground"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+            )}
+            aria-label="More"
+          >
             <Menu size={24} />
           </button>
         </div>

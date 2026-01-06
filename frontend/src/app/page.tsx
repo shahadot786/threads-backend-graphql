@@ -3,7 +3,6 @@
 import { useQuery } from "@apollo/client/react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
-import { CreatePost } from "@/components/post/CreatePost";
 import { PostCard } from "@/components/post/PostCard";
 import { PostSkeleton } from "@/components/ui/Loading";
 import { useAuthStore } from "@/stores/auth";
@@ -43,8 +42,6 @@ export default function HomePage() {
     <MainLayout>
       <Header title="Home" />
 
-      {/* Create Post (for authenticated users) */}
-      {!isLoading && isAuthenticated && <CreatePost />}
 
       {/* Posts Feed */}
       <div className="pb-20 md:pb-4">

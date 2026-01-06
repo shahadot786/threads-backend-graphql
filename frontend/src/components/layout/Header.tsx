@@ -10,11 +10,10 @@ export function Header({ title = "Home", className }: { title?: string, classNam
       className
     )}>
       <div className="flex items-center justify-between h-14 px-4 relative">
-        <div className="w-12 h-12" /> {/* Spacer to center title */}
-        <h1 className="text-base font-bold text-foreground">
+        <h1 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-base font-bold text-foreground">
           {title}
         </h1>
-        <div className="flex items-center md:hidden">
+        <div className="ml-auto flex items-center md:hidden">
           <ThemeToggle />
         </div>
       </div>

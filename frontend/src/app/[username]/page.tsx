@@ -8,6 +8,15 @@ import { Button } from "@/components/ui/Button";
 import { PostCard } from "@/components/post/PostCard";
 import { PostSkeleton } from "@/components/ui/Loading";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SettingsMenu } from "@/components/layout/SettingsMenu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog";
+import { Settings } from "lucide-react";
 import { useAuthStore } from "@/stores/auth";
 import { GET_USER_BY_USERNAME } from "@/graphql/queries/user";
 import { GET_USER_POSTS } from "@/graphql/queries/post";
@@ -129,9 +138,26 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         {/* Action buttons */}
         <div className="flex gap-2">
           {isOwnProfile ? (
-            <Button variant="outline" className="flex-1 rounded-xl h-9 font-bold">
-              Edit profile
-            </Button>
+            <>
+              <Button variant="outline" className="flex-1 rounded-xl h-9 font-bold">
+                Edit profile
+              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="icon" className="md:hidden rounded-xl h-9 w-9 flex-shrink-0">
+                    <Settings size={18} />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-[400px] p-0 overflow-hidden rounded-2xl border-border bg-card">
+                  <DialogHeader className="p-4 border-b border-border">
+                    <DialogTitle className="text-center text-base font-bold">Settings</DialogTitle>
+                  </DialogHeader>
+                  <div className="p-2">
+                    <SettingsMenu variant="popover" />
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </>
           ) : (
             <>
               <Button className="flex-1 rounded-xl h-9 font-bold bg-foreground text-background">
