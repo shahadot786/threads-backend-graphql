@@ -1,5 +1,7 @@
 "use client";
 
+import { Skeleton } from "./skeleton";
+
 export function LoadingSpinner({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   const sizeClasses = {
     sm: "w-4 h-4",
@@ -10,7 +12,7 @@ export function LoadingSpinner({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   return (
     <div className="flex items-center justify-center">
       <svg
-        className={`animate-spin ${sizeClasses[size]} text-text-secondary`}
+        className={`animate-spin ${sizeClasses[size]} text-muted-foreground`}
         xmlns="http://www.w3.org/2000/svg"
         fill="none"
         viewBox="0 0 24 24"
@@ -35,7 +37,7 @@ export function LoadingSpinner({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
 
 export function FullPageLoader() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-primary">
+    <div className="min-h-screen flex items-center justify-center bg-background">
       <LoadingSpinner size="lg" />
     </div>
   );
@@ -43,22 +45,31 @@ export function FullPageLoader() {
 
 export function PostSkeleton() {
   return (
-    <div className="px-4 py-4 border-b border-border animate-pulse">
+    <div className="px-4 py-4 border-b border-border/50">
       <div className="flex gap-3">
-        <div className="w-10 h-10 rounded-full bg-bg-tertiary" />
+        {/* Avatar Skeleton */}
+        <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+
         <div className="flex-1 space-y-3">
-          <div className="flex gap-2">
-            <div className="h-4 w-24 bg-bg-tertiary rounded" />
-            <div className="h-4 w-12 bg-bg-tertiary rounded" />
+          {/* Header Skeleton */}
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-3 w-12" />
           </div>
+
+          {/* Content Skeleton */}
           <div className="space-y-2">
-            <div className="h-4 w-full bg-bg-tertiary rounded" />
-            <div className="h-4 w-3/4 bg-bg-tertiary rounded" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-[90%]" />
+            <Skeleton className="h-4 w-[40%]" />
           </div>
-          <div className="flex gap-4 pt-2">
-            <div className="h-4 w-8 bg-bg-tertiary rounded" />
-            <div className="h-4 w-8 bg-bg-tertiary rounded" />
-            <div className="h-4 w-8 bg-bg-tertiary rounded" />
+
+          {/* Actions Skeleton */}
+          <div className="flex gap-6 pt-2">
+            <Skeleton className="h-5 w-5 rounded-md" />
+            <Skeleton className="h-5 w-5 rounded-md" />
+            <Skeleton className="h-5 w-5 rounded-md" />
+            <Skeleton className="h-5 w-5 rounded-md" />
           </div>
         </div>
       </div>

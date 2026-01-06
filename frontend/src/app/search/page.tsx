@@ -5,7 +5,7 @@ import { useLazyQuery } from "@apollo/client/react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { PostCard } from "@/components/post/PostCard";
-import { Avatar } from "@/components/ui/Avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/Avatar";
 import { PostSkeleton } from "@/components/ui/Loading";
 import { SEARCH_USERS, SEARCH_POSTS } from "@/graphql/queries/search";
 import { debounce } from "@/lib/utils";
@@ -61,7 +61,7 @@ export default function SearchPage() {
         <div className="relative max-w-[500px] mx-auto">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none">
             <svg
-              className="w-5 h-5 text-text-tertiary"
+              className="w-5 h-5 text-muted-foreground"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -75,35 +75,35 @@ export default function SearchPage() {
             value={query}
             onChange={handleInputChange}
             placeholder="Search"
-            className="w-full pl-12 pr-4 py-4 bg-[#1e1e1e] border-none rounded-2xl text-text-primary placeholder:text-text-tertiary outline-none transition-all focus:ring-1 focus:ring-border/40 text-[15px]"
+            className="w-full pl-12 pr-4 py-4 bg-secondary/50 border border-transparent rounded-2xl text-foreground placeholder:text-muted-foreground outline-none transition-all focus:ring-1 focus:ring-border/40 focus:border-border/30 text-[15px]"
           />
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border/20 px-4">
+      <div className="flex border-b border-border/10 px-4">
         <button
           onClick={() => handleTabChange("users")}
           className={`flex-1 flex flex-col items-center py-3 text-[15px] font-bold transition-all relative ${activeTab === "users"
-            ? "text-text-primary"
-            : "text-text-secondary hover:text-text-primary"
+            ? "text-foreground"
+            : "text-muted-foreground hover:text-foreground"
             }`}
         >
           Users
           {activeTab === "users" && (
-            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-text-primary rounded-full transition-all duration-300" />
+            <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-foreground rounded-full transition-all duration-300" />
           )}
         </button>
         <button
           onClick={() => handleTabChange("posts")}
           className={`flex-1 flex flex-col items-center py-3 text-[15px] font-bold transition-all relative ${activeTab === "posts"
-            ? "text-text-primary"
-            : "text-text-secondary hover:text-text-primary"
+            ? "text-foreground"
+            : "text-muted-foreground hover:text-foreground"
             }`}
         >
           Posts
           {activeTab === "posts" && (
-            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-text-primary rounded-full transition-all duration-300" />
+            <div className="absolute bottom-0 left-0 right-0 h-[2.5px] bg-foreground rounded-full transition-all duration-300" />
           )}
         </button>
       </div>
@@ -112,14 +112,14 @@ export default function SearchPage() {
       <div className="pb-20 md:pb-4 min-h-[400px]">
         {query.length === 0 ? (
           <div className="py-20 text-center animate-fade-in">
-            <p className="text-text-tertiary text-sm">Search for users or posts</p>
+            <p className="text-muted-foreground text-sm">Search for users or posts</p>
           </div>
         ) : query.length < 2 ? (
           <div className="py-20 text-center animate-fade-in">
-            <p className="text-text-tertiary text-sm">Enter at least 2 characters</p>
+            <p className="text-muted-foreground text-sm">Enter at least 2 characters</p>
           </div>
         ) : loading ? (
-          <div className="space-y-4 pt-4">
+          <div className="space-y-0 pt-0">
             <PostSkeleton />
             <PostSkeleton />
             <PostSkeleton />
@@ -127,7 +127,7 @@ export default function SearchPage() {
         ) : activeTab === "users" ? (
           users.length === 0 ? (
             <div className="py-20 text-center animate-fade-in">
-              <p className="text-text-tertiary text-sm">No users found</p>
+              <p className="text-muted-foreground text-sm">No users found</p>
             </div>
           ) : (
             <div className="divide-y divide-border/10">
@@ -135,37 +135,31 @@ export default function SearchPage() {
                 <Link
                   key={edge.node.id}
                   href={`/@${edge.node.username}`}
-                  className="flex items-center gap-4 px-4 py-4 hover:bg-hover/50 transition-all group"
+                  className="flex items-center gap-4 px-4 py-4 hover:bg-secondary/20 transition-all group"
                 >
-                  <Avatar
-                    src={edge.node.profileImageUrl}
-                    firstName={edge.node.firstName}
-                    lastName={edge.node.lastName}
-                    size="lg"
-                    className="w-12 h-12 border border-border/20"
-                  />
+                  <Avatar className="w-12 h-12 border border-border/30">
+                    <AvatarImage src={edge.node.profileImageUrl || ""} alt={edge.node.username} />
+                    <AvatarFallback className="bg-muted text-muted-foreground">
+                      {edge.node.firstName[0]}{edge.node.lastName?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-text-primary truncate transition-colors group-hover:underline">
+                      <span className="font-bold text-foreground truncate transition-colors group-hover:underline">
                         {edge.node.username}
                       </span>
-                      {edge.node.is_verified && (
-                        <svg className="w-[14px] h-[14px] text-blue-500" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      )}
                     </div>
-                    <p className="text-text-secondary text-[14px] truncate leading-tight">
+                    <p className="text-muted-foreground text-[14px] truncate leading-tight">
                       {edge.node.firstName} {edge.node.lastName}
                     </p>
                     {edge.node.stats && (
-                      <p className="text-text-tertiary text-[13px] mt-0.5">
+                      <p className="text-muted-foreground text-[13px] mt-0.5">
                         {edge.node.stats.followersCount.toLocaleString()} followers
                       </p>
                     )}
                   </div>
                   <div className="flex-shrink-0">
-                    <button className="h-9 px-6 rounded-xl border border-border text-[14px] font-bold hover:bg-white hover:text-black transition-all active:scale-95">
+                    <button className="h-9 px-6 rounded-xl border border-border/50 text-[14px] font-bold hover:bg-foreground hover:text-background transition-all active:scale-95">
                       Follow
                     </button>
                   </div>
@@ -175,7 +169,7 @@ export default function SearchPage() {
           )
         ) : posts.length === 0 ? (
           <div className="py-20 text-center animate-fade-in">
-            <p className="text-text-tertiary text-sm">No posts found</p>
+            <p className="text-muted-foreground text-sm">No posts found</p>
           </div>
         ) : (
           <div className="divide-y divide-border/10">

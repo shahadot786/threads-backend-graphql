@@ -3,10 +3,11 @@
 import { use } from "react";
 import { useQuery } from "@apollo/client/react";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { Avatar } from "@/components/ui/Avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { PostCard } from "@/components/post/PostCard";
 import { PostSkeleton } from "@/components/ui/Loading";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuthStore } from "@/stores/auth";
 import { GET_USER_BY_USERNAME } from "@/graphql/queries/user";
 import { GET_USER_POSTS } from "@/graphql/queries/post";
@@ -56,18 +57,18 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   if (userLoading) {
     return (
       <MainLayout showAuthCard={false}>
-        <div className="animate-pulse p-4">
-          <div className="flex items-start gap-4 mb-4">
-            <div className="flex-1">
-              <div className="h-6 w-32 bg-bg-tertiary rounded mb-2" />
-              <div className="h-4 w-24 bg-bg-tertiary rounded" />
+        <div className="p-4">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-8 w-40" />
+              <Skeleton className="h-5 w-24" />
             </div>
-            <div className="w-20 h-20 rounded-full bg-bg-tertiary" />
+            <Skeleton className="w-20 h-20 rounded-full" />
           </div>
-          <div className="h-4 w-full bg-bg-tertiary rounded mb-4" />
+          <Skeleton className="h-4 w-full mb-4" />
           <div className="flex gap-4">
-            <div className="h-4 w-20 bg-bg-tertiary rounded" />
-            <div className="h-4 w-20 bg-bg-tertiary rounded" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-4 w-20" />
           </div>
         </div>
       </MainLayout>
@@ -78,9 +79,9 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     return (
       <MainLayout showAuthCard={false}>
         <div className="py-16 text-center">
-          <h2 className="text-xl font-bold text-text-primary mb-2">User not found</h2>
-          <p className="text-text-secondary">@{username} doesn&apos;t exist</p>
-          <Link href="/" className="mt-4 inline-block text-accent hover:underline">
+          <h2 className="text-xl font-bold text-foreground mb-2">User not found</h2>
+          <p className="text-muted-foreground">@{username} doesn&apos;t exist</p>
+          <Link href="/" className="mt-4 inline-block text-primary hover:underline">
             Go home
           </Link>
         </div>
@@ -91,34 +92,34 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   return (
     <MainLayout showAuthCard={false}>
       {/* Profile Header */}
-      <div className="px-4 py-6 border-b border-border">
-        <div className="flex items-start justify-between mb-4">
+      <div className="px-4 py-8 border-b border-border/50">
+        <div className="flex items-start justify-between mb-2">
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-text-primary">
+            <h1 className="text-2xl font-bold text-foreground">
               {getDisplayName(user.firstName, user.lastName)}
             </h1>
-            <p className="text-text-primary">@{user.username}</p>
+            <p className="text-foreground text-[15px]">@{user.username}</p>
           </div>
-          <Avatar
-            src={user.profileImageUrl}
-            firstName={user.firstName}
-            lastName={user.lastName}
-            size="xl"
-          />
+          <Avatar className="w-20 h-20 border border-border/50">
+            <AvatarImage src={user.profileImageUrl || ""} alt={user.username} />
+            <AvatarFallback className="bg-muted text-muted-foreground text-xl">
+              {user.firstName[0]}{user.lastName?.[0]}
+            </AvatarFallback>
+          </Avatar>
         </div>
 
         {/* Bio */}
         {user.bio && (
-          <p className="text-text-primary mb-4 whitespace-pre-wrap">{user.bio}</p>
+          <p className="text-foreground mt-4 whitespace-pre-wrap leading-relaxed">{user.bio}</p>
         )}
 
         {/* Stats */}
-        <div className="flex items-center gap-4 text-text-secondary mb-4">
-          <span>{formatCount(user.stats?.followersCount || 0)} followers</span>
+        <div className="flex items-center gap-4 text-muted-foreground mt-4 mb-6">
+          <span className="hover:text-foreground cursor-pointer transition-colors">{formatCount(user.stats?.followersCount || 0)} followers</span>
           {user.website && (
             <>
               <span>·</span>
-              <a href={user.website} target="_blank" rel="noopener noreferrer" className="hover:underline">
+              <a href={user.website} target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
                 {user.website.replace(/^https?:\/\//, '')}
               </a>
             </>
@@ -128,15 +129,15 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         {/* Action buttons */}
         <div className="flex gap-2">
           {isOwnProfile ? (
-            <Button variant="outline" className="flex-1">
+            <Button variant="outline" className="flex-1 rounded-xl h-9 font-bold">
               Edit profile
             </Button>
           ) : (
             <>
-              <Button variant="primary" className="flex-1">
+              <Button className="flex-1 rounded-xl h-9 font-bold bg-foreground text-background">
                 Follow
               </Button>
-              <Button variant="outline" className="flex-1">
+              <Button variant="outline" className="flex-1 rounded-xl h-9 font-bold">
                 Mention
               </Button>
             </>
@@ -146,13 +147,13 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
       {/* Tabs */}
       <div className="flex border-b border-border">
-        <button className="flex-1 py-3 text-center font-medium text-text-primary border-b-2 border-accent">
+        <button className="flex-1 py-3 text-center font-bold text-foreground border-b-2 border-foreground">
           Threads
         </button>
-        <button className="flex-1 py-3 text-center font-medium text-text-secondary">
+        <button className="flex-1 py-3 text-center font-medium text-muted-foreground hover:text-foreground transition-colors">
           Replies
         </button>
-        <button className="flex-1 py-3 text-center font-medium text-text-secondary">
+        <button className="flex-1 py-3 text-center font-medium text-muted-foreground hover:text-foreground transition-colors">
           Reposts
         </button>
       </div>
@@ -166,8 +167,8 @@ export default function ProfilePage({ params }: ProfilePageProps) {
             <PostSkeleton />
           </>
         ) : posts.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-text-secondary">No threads yet</p>
+          <div className="py-20 text-center animate-fade-in">
+            <p className="text-muted-foreground text-[15px]">No threads yet</p>
           </div>
         ) : (
           posts.map(({ node: post }) => (

@@ -1,47 +1,20 @@
-"use client";
+import * as React from "react"
 
-import { InputHTMLAttributes, forwardRef } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils"
 
-interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-  error?: string;
+function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+  return (
+    <input
+      type={type}
+      data-slot="input"
+      className={cn(
+        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground border border-border h-[56px] w-full min-w-0 rounded-2xl bg-secondary/30 px-4 py-3 text-[15px] shadow-sm transition-all outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+        "focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-primary/50",
+        className
+      )}
+      {...props}
+    />
+  )
 }
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, id, ...props }, ref) => {
-    const inputId = id || label?.toLowerCase().replace(/\s+/g, "-");
-
-    return (
-      <div className="w-full">
-        {label && (
-          <label
-            htmlFor={inputId}
-            className="block text-sm font-medium text-text-secondary mb-1.5"
-          >
-            {label}
-          </label>
-        )}
-        <input
-          ref={ref}
-          id={inputId}
-          className={cn(
-            "w-full px-4 py-3 rounded-xl",
-            "bg-bg-secondary border border-border",
-            "text-text-primary placeholder-text-tertiary",
-            "focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent",
-            "transition-all duration-200",
-            error && "border-red-500 focus:ring-red-500",
-            className
-          )}
-          {...props}
-        />
-        {error && (
-          <p className="mt-1.5 text-sm text-red-500">{error}</p>
-        )}
-      </div>
-    );
-  }
-);
-
-Input.displayName = "Input";
+export { Input }

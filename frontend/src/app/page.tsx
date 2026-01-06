@@ -59,7 +59,7 @@ export default function HomePage() {
         ) : posts.length === 0 ? (
           // Empty state
           <div className="py-16 text-center">
-            <p className="text-text-secondary">No posts yet. Be the first to share!</p>
+            <p className="text-muted-foreground">No posts yet. Be the first to share!</p>
           </div>
         ) : (
           // Posts list
@@ -74,7 +74,7 @@ export default function HomePage() {
                 <button
                   onClick={handleLoadMore}
                   disabled={postsLoading}
-                  className="text-text-secondary hover:text-text-primary transition-colors"
+                  className="text-muted-foreground hover:text-foreground transition-colors font-medium"
                 >
                   {postsLoading ? "Loading..." : "Load more"}
                 </button>
