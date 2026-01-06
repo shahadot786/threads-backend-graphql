@@ -28,7 +28,10 @@ interface PostsData {
 
 export default function ProfilePage({ params }: ProfilePageProps) {
   const resolvedParams = use(params);
-  const username = resolvedParams.username;
+  const rawUsername = resolvedParams.username;
+  // Robustly decode and strip leading @ characters
+  const decodedUsername = decodeURIComponent(rawUsername);
+  const username = decodedUsername.replace(/^@+/, "");
 
   const currentUser = useAuthStore(state => state.user);
   const isOwnProfile = currentUser?.username === username;
