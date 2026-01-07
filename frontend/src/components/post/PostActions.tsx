@@ -55,7 +55,8 @@ const BookmarkIcon = ({ filled }: { filled: boolean }) => (
 
 export function PostActions({ post, onUpdate }: PostActionsProps) {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const { openLoginModal, openReplyModal, showToast } = useUIStore();
+  const user = useAuthStore(state => state.user);
+  const { openLoginModal, openReplyModal, showToast, showAlert } = useUIStore();
 
   const [isLiked, setIsLiked] = useState(post.isLiked);
   const [likesCount, setLikesCount] = useState(post.likesCount);
@@ -110,6 +111,12 @@ export function PostActions({ post, onUpdate }: PostActionsProps) {
     e.stopPropagation();
     if (!isAuthenticated) {
       openLoginModal();
+      return;
+    }
+
+    // Check if user is trying to repost their own post
+    if (user && post.author.id === user.id) {
+      showAlert("Cannot Repost", "You cannot repost your own post.");
       return;
     }
 

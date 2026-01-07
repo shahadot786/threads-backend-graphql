@@ -1,12 +1,19 @@
 import { create } from 'zustand';
 import type { Post } from '@/types';
 
+interface AlertModal {
+  title: string;
+  message: string;
+}
+
 interface UIState {
   // Modals
   isCreatePostOpen: boolean;
   isLoginModalOpen: boolean;
   isReplyModalOpen: boolean;
   replyToPost: Post | null;
+  isAlertModalOpen: boolean;
+  alertModal: AlertModal | null;
   
   // Toast/notification
   toastMessage: string | null;
@@ -25,6 +32,9 @@ interface UIState {
   openReplyModal: (post: Post) => void;
   closeReplyModal: () => void;
   
+  showAlert: (title: string, message: string) => void;
+  closeAlert: () => void;
+  
   showToast: (message: string) => void;
   hideToast: () => void;
   
@@ -36,6 +46,8 @@ export const useUIStore = create<UIState>()((set) => ({
   isLoginModalOpen: false,
   isReplyModalOpen: false,
   replyToPost: null,
+  isAlertModalOpen: false,
+  alertModal: null,
   toastMessage: null,
   isSidebarCollapsed: false,
   
@@ -48,6 +60,12 @@ export const useUIStore = create<UIState>()((set) => ({
   
   openReplyModal: (post: Post) => set({ isReplyModalOpen: true, replyToPost: post }),
   closeReplyModal: () => set({ isReplyModalOpen: false, replyToPost: null }),
+  
+  showAlert: (title: string, message: string) => set({ 
+    isAlertModalOpen: true, 
+    alertModal: { title, message } 
+  }),
+  closeAlert: () => set({ isAlertModalOpen: false, alertModal: null }),
   
   showToast: (message: string) => {
     set({ toastMessage: message });
