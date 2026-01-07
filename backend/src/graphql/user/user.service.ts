@@ -35,23 +35,24 @@ export interface UpdateUserProfileInput {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const REFRESH_SECRET = process.env.REFRESH_SECRET;
 const ACCESS_TOKEN_EXPIRES = "15m";
-const REFRESH_TOKEN_EXPIRES_DAYS = 7;
+const REFRESH_TOKEN_EXPIRES_DAYS = 30;
 
 // Generate password hash with salt
 function generateHash(password: string, salt: string): string {
   return createHmac("sha256", salt).update(password).digest("hex");
 }
 
-// Generate random token
-function generateRandomToken(): string {
-  return randomBytes(40).toString("hex");
-}
-
 // Generate a unique username based on firstName and lastName
-async function generateUniqueUsername(firstName: string, lastName?: string): Promise<string> {
+async function generateUniqueUsername(
+  firstName: string,
+  lastName?: string
+): Promise<string> {
   // Create base username from firstName and lastName (lowercase, no spaces)
-  const baseName = `${firstName}${lastName || ""}`.toLowerCase().replace(/\s+/g, "");
+  const baseName = `${firstName}${lastName || ""}`
+    .toLowerCase()
+    .replace(/\s+/g, "");
 
   let username = baseName;
   let isUnique = false;
@@ -83,7 +84,10 @@ async function generateUniqueUsername(firstName: string, lastName?: string): Pro
 }
 
 // Check if username is unique (for updates)
-async function isUsernameUnique(username: string, excludeUserId?: string): Promise<boolean> {
+async function isUsernameUnique(
+  username: string,
+  excludeUserId?: string
+): Promise<boolean> {
   const existingUser = await prisma.user.findUnique({
     where: { username },
   });
@@ -163,8 +167,12 @@ export const userService = {
         ...(input.bio !== undefined && { bio: input.bio }),
         ...(input.website !== undefined && { website: input.website }),
         ...(input.location !== undefined && { location: input.location }),
-        ...(input.dob !== undefined && { dob: input.dob ? new Date(input.dob) : null }),
-        ...(input.profileImageUrl !== undefined && { profileImageUrl: input.profileImageUrl }),
+        ...(input.dob !== undefined && {
+          dob: input.dob ? new Date(input.dob) : null,
+        }),
+        ...(input.profileImageUrl !== undefined && {
+          profileImageUrl: input.profileImageUrl,
+        }),
         ...(input.is_private !== undefined && { is_private: input.is_private }),
       },
     });
@@ -371,10 +379,16 @@ export const userService = {
   },
 
   // Generate refresh token and save to DB
-  async generateRefreshToken(userId: string): Promise<string> {
-    const token = generateRandomToken();
+  async generateRefreshToken(userId: string, email: string): Promise<string> {
+    if (!REFRESH_SECRET) {
+      throw Errors.internalError("REFRESH_SECRET is not configured");
+    }
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRES_DAYS);
+
+    const token = JWT.sign({ id: userId, email }, REFRESH_SECRET, {
+      expiresIn: `${REFRESH_TOKEN_EXPIRES_DAYS}d`,
+    } as JWT.SignOptions);
 
     await prisma.refreshToken.create({
       data: {
@@ -407,7 +421,7 @@ export const userService = {
     }
 
     const accessToken = this.generateAccessToken(user.id, user.email);
-    const refreshToken = await this.generateRefreshToken(user.id);
+    const refreshToken = await this.generateRefreshToken(user.id, user.email);
 
     return {
       accessToken,
@@ -447,7 +461,8 @@ export const userService = {
       storedToken.user.email
     );
     const newRefreshToken = await this.generateRefreshToken(
-      storedToken.user.id
+      storedToken.user.id,
+      storedToken.user.email
     );
 
     return {
@@ -485,10 +500,15 @@ export const userService = {
     await prisma.passwordResetToken.deleteMany({
       where: { userId: user.id },
     });
-
-    const token = generateRandomToken();
+    if (!REFRESH_SECRET) {
+      throw Errors.internalError("REFRESH_SECRET is not configured");
+    }
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 1); // Token expires in 1 hour
+    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRES_DAYS);
+
+    const token = JWT.sign({ id: user.id, email }, REFRESH_SECRET, {
+      expiresIn: `${REFRESH_TOKEN_EXPIRES_DAYS}d`,
+    } as JWT.SignOptions);
 
     await prisma.passwordResetToken.create({
       data: {

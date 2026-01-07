@@ -4,11 +4,10 @@ import {
   ApolloClient,
   InMemoryCache,
   HttpLink,
-  from,
+  ApolloLink,
   Observable,
-  FetchResult
 } from "@apollo/client/core";
-import { onError } from "@apollo/client/link/error";
+import { ErrorLink } from "@apollo/client/link/error";
 import { ApolloProvider as BaseApolloProvider } from "@apollo/client/react";
 import { ReactNode, useEffect, useRef } from "react";
 import { useAuthStore } from "@/stores/auth";
@@ -16,7 +15,8 @@ import { REFRESH_TOKEN_MUTATION } from "@/graphql/mutations/auth";
 import { GET_CURRENT_USER } from "@/graphql/queries/user";
 import type { User } from "@/types";
 
-const GRAPHQL_URL = process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:8000/graphql";
+const GRAPHQL_URL =
+  process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:8000/graphql";
 
 // Track if we're currently refreshing
 let isRefreshing = false;
@@ -27,7 +27,7 @@ function subscribeTokenRefresh(cb: (retry: boolean) => void) {
 }
 
 function onRefreshComplete(success: boolean) {
-  refreshSubscribers.forEach(cb => cb(success));
+  refreshSubscribers.forEach((cb) => cb(success));
   refreshSubscribers = [];
 }
 
@@ -41,17 +41,17 @@ const httpLink = new HttpLink({
 interface ErrorHandlerParams {
   graphQLErrors?: ReadonlyArray<{
     message: string;
-    extensions?: Record<string, unknown>
+    extensions?: Record<string, unknown>;
   }>;
   operation: {
     operationName: string;
     [key: string]: unknown;
   };
-  forward: (op: unknown) => Observable<FetchResult>;
+  forward: (op: unknown) => Observable<ApolloLink.Result>;
 }
 
 // Error Link with token refresh
-const errorLink = onError((params: unknown) => {
+const errorLink = new ErrorLink((params: unknown) => {
   const { graphQLErrors, operation, forward } = params as ErrorHandlerParams;
 
   if (!graphQLErrors) return;
@@ -71,7 +71,7 @@ const errorLink = onError((params: unknown) => {
       return;
     }
 
-    return new Observable<FetchResult>(observer => {
+    return new Observable<ApolloLink.Result>((observer) => {
       // If already refreshing, wait for it
       if (isRefreshing) {
         subscribeTokenRefresh((success) => {
@@ -117,7 +117,7 @@ const errorLink = onError((params: unknown) => {
 
 // Apollo Client
 export const apolloClient = new ApolloClient({
-  link: from([errorLink, httpLink]),
+  link: ApolloLink.from([errorLink, httpLink]),
   cache: new InMemoryCache({
     typePolicies: {
       Query: {
@@ -127,8 +127,12 @@ export const apolloClient = new ApolloClient({
             merge(existing, incoming) {
               if (!existing) return incoming;
               // Deduplicate by cursor
-              const existingCursors = new Set(existing.edges.map((e: { cursor: string }) => e.cursor));
-              const newEdges = incoming.edges.filter((e: { cursor: string }) => !existingCursors.has(e.cursor));
+              const existingCursors = new Set(
+                existing.edges.map((e: { cursor: string }) => e.cursor)
+              );
+              const newEdges = incoming.edges.filter(
+                (e: { cursor: string }) => !existingCursors.has(e.cursor)
+              );
               return {
                 ...incoming,
                 edges: [...existing.edges, ...newEdges],
@@ -140,8 +144,12 @@ export const apolloClient = new ApolloClient({
             merge(existing, incoming) {
               if (!existing) return incoming;
               // Deduplicate by cursor
-              const existingCursors = new Set(existing.edges.map((e: { cursor: string }) => e.cursor));
-              const newEdges = incoming.edges.filter((e: { cursor: string }) => !existingCursors.has(e.cursor));
+              const existingCursors = new Set(
+                existing.edges.map((e: { cursor: string }) => e.cursor)
+              );
+              const newEdges = incoming.edges.filter(
+                (e: { cursor: string }) => !existingCursors.has(e.cursor)
+              );
               return {
                 ...incoming,
                 edges: [...existing.edges, ...newEdges],
@@ -166,8 +174,8 @@ export const apolloClient = new ApolloClient({
 // Apollo Provider with auth initialization
 export function ApolloProvider({ children }: { children: ReactNode }) {
   const hasInitialized = useRef(false);
-  const setUser = useAuthStore(state => state.setUser);
-  const setLoading = useAuthStore(state => state.setLoading);
+  const setUser = useAuthStore((state) => state.setUser);
+  const setLoading = useAuthStore((state) => state.setLoading);
 
   // Initialize auth on mount
   useEffect(() => {
@@ -176,7 +184,9 @@ export function ApolloProvider({ children }: { children: ReactNode }) {
 
     async function initAuth() {
       try {
-        const { data } = await apolloClient.query<{ getCurrentLoggedInUser: User | null }>({
+        const { data } = await apolloClient.query<{
+          getCurrentLoggedInUser: User | null;
+        }>({
           query: GET_CURRENT_USER,
           fetchPolicy: "network-only",
         });
@@ -191,8 +201,6 @@ export function ApolloProvider({ children }: { children: ReactNode }) {
   }, [setUser, setLoading]);
 
   return (
-    <BaseApolloProvider client={apolloClient}>
-      {children}
-    </BaseApolloProvider>
+    <BaseApolloProvider client={apolloClient}>{children}</BaseApolloProvider>
   );
 }
