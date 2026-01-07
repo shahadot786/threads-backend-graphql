@@ -6,8 +6,10 @@ import {
   HttpLink,
   ApolloLink,
   Observable,
+  FetchResult,
 } from "@apollo/client/core";
 import { ErrorLink } from "@apollo/client/link/error";
+import { CombinedGraphQLErrors } from "@apollo/client/errors";
 import { ApolloProvider as BaseApolloProvider } from "@apollo/client/react";
 import { ReactNode, useEffect, useRef } from "react";
 import { useAuthStore } from "@/stores/auth";
@@ -37,81 +39,107 @@ const httpLink = new HttpLink({
   credentials: "include",
 });
 
-// Type for error handler params (Apollo v4 compatible)
-interface ErrorHandlerParams {
-  graphQLErrors?: ReadonlyArray<{
-    message: string;
-    extensions?: Record<string, unknown>;
-  }>;
-  operation: {
-    operationName: string;
-    [key: string]: unknown;
-  };
-  forward: (op: unknown) => Observable<ApolloLink.Result>;
-}
+
 
 // Error Link with token refresh
-const errorLink = new ErrorLink((params: unknown) => {
-  const { graphQLErrors, operation, forward } = params as ErrorHandlerParams;
+const errorLink = new ErrorLink(({ error, operation, forward }) => {
+  if (CombinedGraphQLErrors.is(error)) {
+    for (const err of error.errors) {
+      console.log(`[AUTH] GraphQL Error: ${err.message}`, {
+        code: err.extensions?.code,
+      });
 
-  if (!graphQLErrors) return;
+      // Check if it's an auth error
+      const isAuthError =
+        err.extensions?.code === "UNAUTHENTICATED" ||
+        err.message.includes("Not authenticated") ||
+        err.message.includes("Token expired");
 
-  for (const err of graphQLErrors) {
-    // Check if it's an auth error
-    const isAuthError =
-      err.extensions?.code === "UNAUTHENTICATED" ||
-      err.message.includes("Not authenticated") ||
-      err.message.includes("Token expired");
+      if (!isAuthError) continue;
 
-    if (!isAuthError) continue;
+      console.log(
+        `[AUTH] Auth error detected in operation: ${operation.operationName}. Triggering refresh flow...`
+      );
 
-    // Don't retry refresh token or logout mutations
-    const operationName = operation.operationName;
-    if (operationName === "RefreshToken" || operationName === "Logout") {
-      return;
-    }
-
-    return new Observable<ApolloLink.Result>((observer) => {
-      // If already refreshing, wait for it
-      if (isRefreshing) {
-        subscribeTokenRefresh((success) => {
-          if (success) {
-            forward(operation).subscribe(observer);
-          } else {
-            observer.error(err);
-          }
-        });
+      // Don't retry refresh token or logout mutations
+      const operationName = operation.operationName;
+      if (operationName === "RefreshToken" || operationName === "Logout") {
+        console.log(
+          `[AUTH] Error occurred during RefreshToken or Logout. Not retrying.`
+        );
         return;
       }
 
-      isRefreshing = true;
-      useAuthStore.getState().setRefreshing(true);
+      return new Observable<FetchResult>((observer) => {
+        // If already refreshing, wait for it
+        if (isRefreshing) {
+          console.log(
+            `[AUTH] Already refreshing, subscribing operation: ${operation.operationName}`
+          );
+          subscribeTokenRefresh((success) => {
+            if (success) {
+              console.log(
+                `[AUTH] Refresh success, retrying operation: ${operation.operationName}`
+              );
+              forward(operation).subscribe(observer);
+            } else {
+              console.log(
+                `[AUTH] Refresh failed, erroring operation: ${operation.operationName}`
+              );
+              observer.error(err);
+            }
+          });
+          return;
+        }
 
-      // Try to refresh
-      apolloClient
-        .mutate<{ refreshToken: { accessToken: string; user: User } }>({
-          mutation: REFRESH_TOKEN_MUTATION,
-        })
-        .then(({ data }) => {
-          if (data?.refreshToken?.user) {
-            useAuthStore.getState().login(data.refreshToken.user);
+        console.log(`[AUTH] Starting token refresh mutation...`);
+        isRefreshing = true;
+        useAuthStore.getState().setRefreshing(true);
+
+        // Try to refresh
+        apolloClient
+          .mutate<{ refreshToken: { accessToken: string; user: User } }>({
+            mutation: REFRESH_TOKEN_MUTATION,
+            context: {
+              headers: {
+                "x-apollo-operation-name": "RefreshToken",
+              },
+            },
+          })
+          .then(({ data }) => {
+            console.log(
+              `[AUTH] Token refresh mutation successful. User: ${data?.refreshToken?.user?.username}`
+            );
+            if (data?.refreshToken?.user) {
+              useAuthStore.getState().login(data.refreshToken.user);
+              isRefreshing = false;
+              useAuthStore.getState().setRefreshing(false);
+              onRefreshComplete(true);
+
+              console.log(
+                `[AUTH] Retrying original operation: ${operation.operationName}`
+              );
+              // Retry the original request
+              forward(operation).subscribe(observer);
+            } else {
+              console.log(`[AUTH] Token refresh mutation returned NO user data.`);
+              throw new Error("Refresh failed");
+            }
+          })
+          .catch((refreshError) => {
+            console.error(`[AUTH] Token refresh mutation FAILED:`, refreshError);
             isRefreshing = false;
             useAuthStore.getState().setRefreshing(false);
-            onRefreshComplete(true);
-            // Retry the original request
-            forward(operation).subscribe(observer);
-          } else {
-            throw new Error("Refresh failed");
-          }
-        })
-        .catch(() => {
-          isRefreshing = false;
-          useAuthStore.getState().setRefreshing(false);
-          useAuthStore.getState().logout();
-          onRefreshComplete(false);
-          observer.error(err);
-        });
-    });
+            useAuthStore.getState().logout();
+            onRefreshComplete(false);
+            observer.error(err);
+          });
+      });
+    }
+  }
+
+  if (error && !CombinedGraphQLErrors.is(error)) {
+    console.error(`[AUTH] Network error:`, error);
   }
 });
 
@@ -183,6 +211,7 @@ export function ApolloProvider({ children }: { children: ReactNode }) {
     hasInitialized.current = true;
 
     async function initAuth() {
+      console.log(`[AUTH] initAuth starting...`);
       try {
         const { data } = await apolloClient.query<{
           getCurrentLoggedInUser: User | null;
@@ -190,8 +219,10 @@ export function ApolloProvider({ children }: { children: ReactNode }) {
           query: GET_CURRENT_USER,
           fetchPolicy: "network-only",
         });
+        console.log(`[AUTH] initAuth success. User: ${data?.getCurrentLoggedInUser?.username || 'null'}`);
         setUser(data?.getCurrentLoggedInUser || null);
-      } catch {
+      } catch (err: unknown) {
+        console.error(`[AUTH] initAuth failed:`, err instanceof Error ? err.message : String(err));
         // Not authenticated, that's fine
         setUser(null);
       }

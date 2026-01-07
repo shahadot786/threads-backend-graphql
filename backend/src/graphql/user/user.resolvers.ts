@@ -140,7 +140,10 @@ export const userResolvers = {
     refreshToken: async (_: unknown, __: unknown, context: GraphQLContext) => {
       const refreshTokenValue = context.req.cookies?.[REFRESH_TOKEN_COOKIE];
 
+      console.log(`[AUTH] refreshToken mutation triggered. Cookie present: ${!!refreshTokenValue}`);
+
       if (!refreshTokenValue) {
+        console.log(`[AUTH] refreshToken mutation failed - NO cookie`);
         throw Errors.unauthenticated("No refresh token provided");
       }
 
@@ -149,6 +152,8 @@ export const userResolvers = {
         refreshToken: newRefreshToken,
         user,
       } = await userService.refreshAccessToken(refreshTokenValue);
+
+      console.log(`[AUTH] refreshToken mutation success for user: ${user.username}`);
 
       // Set new cookies
       setAuthCookies(context.res, accessToken, newRefreshToken);
