@@ -39,16 +39,10 @@ const httpLink = new HttpLink({
   credentials: "include",
 });
 
-
-
 // Error Link with token refresh
 const errorLink = new ErrorLink(({ error, operation, forward }) => {
   if (CombinedGraphQLErrors.is(error)) {
     for (const err of error.errors) {
-      console.log(`[AUTH] GraphQL Error: ${err.message}`, {
-        code: err.extensions?.code,
-      });
-
       // Check if it's an auth error
       const isAuthError =
         err.extensions?.code === "UNAUTHENTICATED" ||
@@ -57,42 +51,24 @@ const errorLink = new ErrorLink(({ error, operation, forward }) => {
 
       if (!isAuthError) continue;
 
-      console.log(
-        `[AUTH] Auth error detected in operation: ${operation.operationName}. Triggering refresh flow...`
-      );
-
       // Don't retry refresh token or logout mutations
       const operationName = operation.operationName;
       if (operationName === "RefreshToken" || operationName === "Logout") {
-        console.log(
-          `[AUTH] Error occurred during RefreshToken or Logout. Not retrying.`
-        );
         return;
       }
 
       return new Observable<FetchResult>((observer) => {
         // If already refreshing, wait for it
         if (isRefreshing) {
-          console.log(
-            `[AUTH] Already refreshing, subscribing operation: ${operation.operationName}`
-          );
           subscribeTokenRefresh((success) => {
             if (success) {
-              console.log(
-                `[AUTH] Refresh success, retrying operation: ${operation.operationName}`
-              );
               forward(operation).subscribe(observer);
             } else {
-              console.log(
-                `[AUTH] Refresh failed, erroring operation: ${operation.operationName}`
-              );
               observer.error(err);
             }
           });
           return;
         }
-
-        console.log(`[AUTH] Starting token refresh mutation...`);
         isRefreshing = true;
         useAuthStore.getState().setRefreshing(true);
 
@@ -107,27 +83,23 @@ const errorLink = new ErrorLink(({ error, operation, forward }) => {
             },
           })
           .then(({ data }) => {
-            console.log(
-              `[AUTH] Token refresh mutation successful. User: ${data?.refreshToken?.user?.username}`
-            );
             if (data?.refreshToken?.user) {
               useAuthStore.getState().login(data.refreshToken.user);
               isRefreshing = false;
               useAuthStore.getState().setRefreshing(false);
               onRefreshComplete(true);
 
-              console.log(
-                `[AUTH] Retrying original operation: ${operation.operationName}`
-              );
               // Retry the original request
               forward(operation).subscribe(observer);
             } else {
-              console.log(`[AUTH] Token refresh mutation returned NO user data.`);
               throw new Error("Refresh failed");
             }
           })
           .catch((refreshError) => {
-            console.error(`[AUTH] Token refresh mutation FAILED:`, refreshError);
+            console.error(
+              `[AUTH] Token refresh mutation FAILED:`,
+              refreshError
+            );
             isRefreshing = false;
             useAuthStore.getState().setRefreshing(false);
             useAuthStore.getState().logout();
@@ -139,7 +111,6 @@ const errorLink = new ErrorLink(({ error, operation, forward }) => {
   }
 
   if (error && !CombinedGraphQLErrors.is(error)) {
-    console.error(`[AUTH] Network error:`, error);
   }
 });
 
@@ -211,7 +182,6 @@ export function ApolloProvider({ children }: { children: ReactNode }) {
     hasInitialized.current = true;
 
     async function initAuth() {
-      console.log(`[AUTH] initAuth starting...`);
       try {
         const { data } = await apolloClient.query<{
           getCurrentLoggedInUser: User | null;
@@ -219,10 +189,12 @@ export function ApolloProvider({ children }: { children: ReactNode }) {
           query: GET_CURRENT_USER,
           fetchPolicy: "network-only",
         });
-        console.log(`[AUTH] initAuth success. User: ${data?.getCurrentLoggedInUser?.username || 'null'}`);
         setUser(data?.getCurrentLoggedInUser || null);
       } catch (err: unknown) {
-        console.error(`[AUTH] initAuth failed:`, err instanceof Error ? err.message : String(err));
+        console.error(
+          `[AUTH] initAuth failed:`,
+          err instanceof Error ? err.message : String(err)
+        );
         // Not authenticated, that's fine
         setUser(null);
       }

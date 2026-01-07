@@ -35,13 +35,10 @@ export async function createContext(
   // Get access token from cookie
   const token = req.cookies?.[ACCESS_TOKEN_COOKIE];
 
-  console.log(`[AUTH] createContext - Path: ${req.path}, Op: ${req.body?.operationName || 'unknown'}`);
-  console.log(`[AUTH] Access Token present: ${!!token}`);
-
   // If no token or JWT_SECRET, return unauthenticated context
   if (!token || !JWT_SECRET) {
     if (!token && req.cookies?.[REFRESH_TOKEN_COOKIE]) {
-      console.log(`[AUTH] Access token missing but Refresh Token IS present.`);
+      console.warn(`[AUTH] Access token missing but Refresh Token IS present.`);
     }
     return { user: null, req, res };
   }
@@ -52,12 +49,10 @@ export async function createContext(
 
     // Fetch user from database
     const user = await userService.getUserById(decoded.id);
-    console.log(`[AUTH] User authenticated: ${user?.username || 'user not found in DB'}`);
 
     return { user, req, res };
   } catch (err: any) {
     // Token invalid or expired
-    console.log(`[AUTH] JWT Verification failed: ${err.message}`);
     return { user: null, req, res };
   }
 }
