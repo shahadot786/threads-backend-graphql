@@ -19,6 +19,8 @@ export const postTypeDefs = /* GraphQL */ `
     THREADS
     REPLIES
     REPOSTS
+    MEDIA
+    BOOKMARKS
   }
 
   # =========================

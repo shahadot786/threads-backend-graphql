@@ -69,7 +69,7 @@ export function EditProfileModal() {
     uploadFormData.append("file", file);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/upload`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/upload`, {
         method: "POST",
         body: uploadFormData,
       });

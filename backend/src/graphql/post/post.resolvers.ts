@@ -107,9 +107,10 @@ export const postResolvers = {
     // Get post replies (PUBLIC - guests can view)
     getPostReplies: async (
       _: unknown,
-      args: { postId: string; first?: number; after?: string }
+      args: { postId: string; first?: number; after?: string },
+      context: GraphQLContext
     ) => {
-      return postService.getPostReplies(args.postId, {
+      return postService.getPostReplies(args.postId, context.user?.id ?? null, {
         first: args.first ?? 20,
         after: args.after,
       });
@@ -118,7 +119,7 @@ export const postResolvers = {
     // Get user posts (PUBLIC - but respects privacy settings)
     getUserPosts: async (
       _: unknown,
-      args: { userId: string; filter?: "THREADS" | "REPLIES" | "REPOSTS"; first?: number; after?: string },
+      args: { userId: string; filter?: "THREADS" | "REPLIES" | "REPOSTS" | "MEDIA" | "BOOKMARKS"; first?: number; after?: string },
       context: GraphQLContext
     ) => {
       return postService.getUserPosts(args.userId, context.user?.id ?? null, {
@@ -154,9 +155,10 @@ export const postResolvers = {
     // Get public feed (PUBLIC - chronological order for guests)
     getPublicFeed: async (
       _: unknown,
-      args: { first?: number; after?: string }
+      args: { first?: number; after?: string },
+      context: GraphQLContext
     ) => {
-      return postService.getPublicFeed({
+      return postService.getPublicFeed(context.user?.id || null, {
         first: args.first ?? 20,
         after: args.after,
       });

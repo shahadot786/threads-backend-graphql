@@ -25,6 +25,7 @@ import { GET_USER_POSTS } from "@/graphql/queries/post";
 import { formatCount, getDisplayName } from "@/lib/utils";
 import Link from "next/link";
 import type { User, PostConnection } from "@/types";
+import { BlockedUsersList } from "@/components/user/BlockedUsersList";
 
 interface ProfilePageProps {
   params: Promise<{ username: string }>;
@@ -58,12 +59,14 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
   const user = userData?.getUserByUsername;
 
-  const [activeTab, setActiveTab] = useState<'threads' | 'replies' | 'reposts'>('threads');
+  const [activeTab, setActiveTab] = useState<'threads' | 'replies' | 'reposts' | 'media' | 'bookmarks' | 'blocked'>('threads');
 
   const getFilterFromTab = (tab: typeof activeTab) => {
     switch (tab) {
       case 'replies': return 'REPLIES';
       case 'reposts': return 'REPOSTS';
+      case 'media': return 'MEDIA';
+      case 'bookmarks': return 'BOOKMARKS';
       default: return 'THREADS';
     }
   };
@@ -76,8 +79,8 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         first: 20,
         filter: getFilterFromTab(activeTab)
       },
-      skip: !user?.id,
-      fetchPolicy: "cache-and-network", // Ensure fresh data on tab switch
+      skip: !user?.id || activeTab === 'blocked',
+      fetchPolicy: "cache-and-network",
     }
   );
 
@@ -282,39 +285,72 @@ export default function ProfilePage({ params }: ProfilePageProps) {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border">
+      <div className="flex border-b border-border overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('threads')}
-          className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'threads'
-              ? "text-foreground border-foreground"
-              : "text-muted-foreground border-transparent hover:text-foreground"
+          className={`flex-1 min-w-[80px] py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'threads'
+            ? "text-foreground border-foreground"
+            : "text-muted-foreground border-transparent hover:text-foreground"
             }`}
         >
           Threads
         </button>
         <button
           onClick={() => setActiveTab('replies')}
-          className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'replies'
-              ? "text-foreground border-foreground"
-              : "text-muted-foreground border-transparent hover:text-foreground"
+          className={`flex-1 min-w-[80px] py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'replies'
+            ? "text-foreground border-foreground"
+            : "text-muted-foreground border-transparent hover:text-foreground"
             }`}
         >
           Replies
         </button>
         <button
           onClick={() => setActiveTab('reposts')}
-          className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'reposts'
-              ? "text-foreground border-foreground"
-              : "text-muted-foreground border-transparent hover:text-foreground"
+          className={`flex-1 min-w-[80px] py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'reposts'
+            ? "text-foreground border-foreground"
+            : "text-muted-foreground border-transparent hover:text-foreground"
             }`}
         >
           Reposts
         </button>
+        <button
+          onClick={() => setActiveTab('media')}
+          className={`flex-1 min-w-[80px] py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'media'
+            ? "text-foreground border-foreground"
+            : "text-muted-foreground border-transparent hover:text-foreground"
+            }`}
+        >
+          Media
+        </button>
+        {isOwnProfile && (
+          <button
+            onClick={() => setActiveTab('bookmarks')}
+            className={`flex-1 min-w-[80px] py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'bookmarks'
+              ? "text-foreground border-foreground"
+              : "text-muted-foreground border-transparent hover:text-foreground"
+              }`}
+          >
+            Saved
+          </button>
+        )}
+        {isOwnProfile && (
+          <button
+            onClick={() => setActiveTab('blocked')}
+            className={`flex-1 min-w-[80px] py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'blocked'
+              ? "text-foreground border-foreground"
+              : "text-muted-foreground border-transparent hover:text-foreground"
+              }`}
+          >
+            Blocked
+          </button>
+        )}
       </div>
 
-      {/* Posts */}
+      {/* Posts or Blocked List */}
       <div className="pb-20 md:pb-4">
-        {postsLoading ? (
+        {activeTab === 'blocked' ? (
+          <BlockedUsersList />
+        ) : postsLoading ? (
           <>
             <PostSkeleton />
             <PostSkeleton />
@@ -326,10 +362,32 @@ export default function ProfilePage({ params }: ProfilePageProps) {
               {activeTab === 'threads' && "No threads yet"}
               {activeTab === 'replies' && "No replies yet"}
               {activeTab === 'reposts' && "No reposts yet"}
+              {activeTab === 'media' && "No media yet"}
+              {activeTab === 'bookmarks' && "No saved posts yet"}
             </p>
           </div>
         ) : (
-          posts.map(({ node: post }) => <PostCard key={post.id} post={post} />)
+          <div className="relative">
+            {/* Guest Limit Logic */}
+            {!isAuthenticated && posts.length > 0 ? (
+              <>
+                {posts.slice(0, 3).map(({ node: post }) => <PostCard key={post.id} post={post} />)}
+
+                {/* Blur / CTA for Guests */}
+                <div className="mt-4 px-6 mx-10 py-8 bg-secondary/30 rounded-xl text-center backdrop-blur-sm border border-border/50">
+                  <h3 className="text-lg font-bold mb-2">Log in to see more</h3>
+                  <p className="text-muted-foreground mb-4 text-sm">
+                    Log in to view more posts from @{username}
+                  </p>
+                  <Button onClick={openLoginModal} className="font-bold px-8 rounded-xl h-10">
+                    Log in
+                  </Button>
+                </div>
+              </>
+            ) : (
+              posts.map(({ node: post }) => <PostCard key={post.id} post={post} />)
+            )}
+          </div>
         )}
       </div>
     </MainLayout>

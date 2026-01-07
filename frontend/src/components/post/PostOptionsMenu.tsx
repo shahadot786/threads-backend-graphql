@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@apollo/client/react";
+import { gql } from "@apollo/client/core";
 import { useAuthStore } from "@/stores/auth";
 import { useUIStore } from "@/stores/ui";
 import { DELETE_POST_MUTATION, UPDATE_POST_MUTATION } from "@/graphql/mutations/post";
@@ -37,6 +38,11 @@ export function PostOptionsMenu({ post, onDelete, onUpdate }: PostOptionsMenuPro
 
   const [deletePost, { loading: deleteLoading }] = useMutation(DELETE_POST_MUTATION);
   const [updatePost, { loading: updateLoading }] = useMutation(UPDATE_POST_MUTATION);
+  const [blockUser] = useMutation(gql`
+    mutation BlockUser($userId: ID!) {
+      blockUser(userId: $userId)
+    }
+  `);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -131,6 +137,26 @@ export function PostOptionsMenu({ post, onDelete, onUpdate }: PostOptionsMenuPro
     PRIVATE: <Lock size={16} />,
   };
 
+  const handleBlock = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!isAuthenticated) return;
+
+    if (window.confirm(`Block @${post.author.username}?\n\nThey won't be able to message you or find your profile or content on Threads. They won't be notified that you blocked them.`)) {
+      try {
+        await blockUser({ variables: { userId: post.author.id } });
+        showToast(`Blocked @${post.author.username}`);
+        setIsOpen(false);
+        // Ideally we should refresh the feed or remove posts from this user
+        // window.location.reload(); // Reloading is harsh, maybe just toast for now and let the next fetch handle it
+        setIsOpen(false);
+      } catch (error) {
+        showToast("Failed to block user");
+      }
+    }
+  };
+
   return (
     <div ref={menuRef} className="relative">
       <button
@@ -213,6 +239,33 @@ export function PostOptionsMenu({ post, onDelete, onUpdate }: PostOptionsMenuPro
               >
                 <Trash2 size={18} />
                 {deleteLoading ? "Deleting..." : "Delete post"}
+              </button>
+            </>
+          )}
+
+          {/* Block Option for non-owners */}
+          {isAuthenticated && !isOwner && (
+            <>
+              <div className="border-t border-border" />
+              <button
+                onClick={handleBlock}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-500 hover:bg-red-500/10 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <svg
+                    aria-label="Block"
+                    color="currentColor"
+                    fill="currentColor"
+                    height="18"
+                    role="img"
+                    viewBox="0 0 24 24"
+                    width="18"
+                  >
+                    <title>Block</title>
+                    <path d="M12 1.5c5.799 0 10.5 4.701 10.5 10.5S17.799 22.5 12 22.5 1.5 17.799 1.5 12 6.201 1.5 12 1.5ZM4.975 17.254a8.946 8.946 0 0 0 12.279-12.279L4.975 17.254Zm1.77-13.793L19.026 15.74a8.946 8.946 0 0 0-12.28-12.279Z"></path>
+                  </svg>
+                  <span>Block @{post.author.username}</span>
+                </div>
               </button>
             </>
           )}

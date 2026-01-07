@@ -85,6 +85,24 @@ function getEndCursor<T extends { cursor: string }>(edges: T[]): string | null {
 
 export const postService = {
   // =====================
+  // HELPER: Get blocked user IDs (blocked by me OR blocked me)
+  // =====================
+  async getBlockedUserIds(userId: string) {
+    const blocks = await prisma.block.findMany({
+      where: {
+        OR: [{ blockerId: userId }, { blockedId: userId }],
+      },
+      select: { blockerId: true, blockedId: true },
+    });
+
+    const blockedIds = new Set<string>();
+    for (const block of blocks) {
+      if (block.blockerId === userId) blockedIds.add(block.blockedId);
+      if (block.blockedId === userId) blockedIds.add(block.blockerId);
+    }
+    return Array.from(blockedIds);
+  },
+  // =====================
   // CREATE POST
   // =====================
   async createPost(authorId: string, input: CreatePostInput) {
@@ -292,6 +310,21 @@ export const postService = {
       throw Errors.notFound("Post");
     }
 
+    // Check if blocked
+    if (currentUserId) {
+        const blocks = await prisma.block.findFirst({
+            where: {
+                OR: [
+                    { blockerId: post.authorId, blockedId: currentUserId },
+                    { blockerId: currentUserId, blockedId: post.authorId }
+                ]
+            }
+        });
+        if (blocks) {
+             throw Errors.forbidden("Post not available");
+        }
+    }
+
     // Check visibility for private posts
     if (post.visibility === "PRIVATE" && post.authorId !== currentUserId) {
       throw Errors.forbidden("This post is private");
@@ -321,11 +354,14 @@ export const postService = {
   // =====================
   // GET POST REPLIES (with pagination)
   // =====================
-  async getPostReplies(postId: string, pagination: PaginationInput = {}) {
+  async getPostReplies(postId: string, currentUserId: string | null, pagination: PaginationInput = {}) {
     const { first = 20, after } = pagination;
+
+    const blockedIds = currentUserId ? await this.getBlockedUserIds(currentUserId) : [];
 
     const whereClause: Prisma.PostWhereInput = {
       parentPostId: postId,
+      authorId: { notIn: blockedIds }, // Filter blocked
     };
 
     if (after) {
@@ -368,7 +404,7 @@ export const postService = {
     userId: string,
     currentUserId: string | null,
     pagination: PaginationInput = {},
-    filter: "THREADS" | "REPLIES" | "REPOSTS" = "THREADS"
+    filter: "THREADS" | "REPLIES" | "REPOSTS" | "MEDIA" | "BOOKMARKS" = "THREADS"
   ) {
     const { first = 20, after } = pagination;
 
@@ -398,6 +434,21 @@ export const postService = {
       if (!isFollowing) {
         return { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
       }
+    }
+
+    // Security check: If viewing another user's profile, check if blocked
+    if (currentUserId && userId !== currentUserId) {
+        const blocks = await prisma.block.findFirst({
+            where: {
+                OR: [
+                    { blockerId: userId, blockedId: currentUserId }, // They blocked me
+                    { blockerId: currentUserId, blockedId: userId }  // I blocked them
+                ]
+            }
+        });
+        if (blocks) {
+             return { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
+        }
     }
 
     let cursorDate: Date | undefined;
@@ -555,6 +606,85 @@ export const postService = {
       };
     }
     
+    // ---------------------------------------------------------
+    // CASE 4: MEDIA (Posts with images/videos)
+    // ---------------------------------------------------------
+    if (filter === "MEDIA") {
+      const mediaWhereClause: Prisma.PostWhereInput = {
+        authorId: userId,
+        media: { some: {} }, // Has at least one media item
+        ...(cursorDate && { createdAt: { lt: cursorDate } }),
+      };
+
+      const mediaPosts = await prisma.post.findMany({
+        where: mediaWhereClause,
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        include: {
+          author: true,
+          media: { orderBy: { position: "asc" } },
+        },
+      });
+
+      const hasNextPage = mediaPosts.length > first;
+      const edges = mediaPosts.slice(0, first).map((post) => ({
+        cursor: encodeCursor(post.createdAt, post.id),
+        node: post,
+      }));
+
+      return {
+        edges,
+        pageInfo: {
+          hasNextPage,
+          endCursor: getEndCursor(edges),
+        },
+      };
+    }
+
+    // ---------------------------------------------------------
+    // CASE 5: BOOKMARKS (Saved posts - PRIVATE to user)
+    // ---------------------------------------------------------
+    if (filter === "BOOKMARKS") {
+      // Security check: Only allow viewing own bookmarks
+      if (userId !== currentUserId) {
+         // Return empty if trying to view someone else's bookmarks
+         return { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
+      }
+
+      const bookmarksWhereClause: Prisma.BookmarkWhereInput = {
+        userId: userId,
+        ...(cursorDate && { createdAt: { lt: cursorDate } }),
+      };
+
+      const bookmarks = await prisma.bookmark.findMany({
+        where: bookmarksWhereClause,
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }],
+        include: {
+          post: {
+            include: {
+              author: true,
+              media: { orderBy: { position: "asc" } },
+            },
+          },
+        },
+      });
+
+      const hasNextPage = bookmarks.length > first;
+      const edges = bookmarks.slice(0, first).map((bookmark) => ({
+        cursor: encodeCursor(bookmark.createdAt, bookmark.post.id), // Use bookmark creation time for sorting
+        node: bookmark.post,
+      }));
+
+      return {
+        edges,
+        pageInfo: {
+          hasNextPage,
+          endCursor: getEndCursor(edges),
+        },
+      };
+    }
+    
     // Fallback empty return if unknown filter
     return { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
   },
@@ -565,18 +695,22 @@ export const postService = {
   async getHomeFeed(_userId: string, pagination: PaginationInput = {}) {
     const { first = 20, after } = pagination;
 
+    // Get blocked users
+    const blockedIds = await this.getBlockedUserIds(_userId);
+
     // Get the user's following list
     const following = await prisma.follow.findMany({
       where: { followerId: _userId },
       select: { followingId: true },
     });
 
-    // If user follows no one, return top posts
+    // If user follows no one, return top posts (excluding blocked)
     if (following.length === 0) {
       const topPosts = await prisma.post.findMany({
         where: {
           visibility: "PUBLIC",
           parentPostId: null,
+          authorId: { notIn: blockedIds }, // Filter blocked
           // Last 7 days to keep it fresh
           createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
         },
@@ -611,7 +745,9 @@ export const postService = {
       };
     }
 
-    const followingIds = following.map(f => f.followingId);
+
+
+    const followingIds = following.map(f => f.followingId).filter(id => !blockedIds.includes(id));
     followingIds.push(_userId); // Include own posts
 
     let cursorDate: Date | undefined;
@@ -704,8 +840,10 @@ export const postService = {
   // =====================
   // GET PUBLIC FEED (public posts + reposts, sorted by createdAt for guests)
   // =====================
-  async getPublicFeed(pagination: PaginationInput = {}) {
+  async getPublicFeed(currentUserId: string | null, pagination: PaginationInput = {}) {
     const { first = 20, after } = pagination;
+
+    const blockedIds = currentUserId ? await this.getBlockedUserIds(currentUserId) : [];
 
     let cursorDate: Date | undefined;
     if (after) {
@@ -717,6 +855,7 @@ export const postService = {
     const postsWhereClause: Prisma.PostWhereInput = {
       parentPostId: null,
       visibility: "PUBLIC",
+      authorId: { notIn: blockedIds }, // Filter blocked
       ...(cursorDate && { createdAt: { lt: cursorDate } }),
     };
 

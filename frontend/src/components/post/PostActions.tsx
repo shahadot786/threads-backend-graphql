@@ -242,6 +242,19 @@ export function PostActions({ post, onUpdate }: PostActionsProps) {
           <ShareIcon />
         </div>
       </button>
+
+      <div className="ml-auto">
+        {(!user || post.author.id !== user.id) && (
+          <button
+            onClick={handleBookmark}
+            className="group p-2 rounded-full hover:bg-hover transition-colors text-icon hover:text-icon-active"
+          >
+            <div className={`transition-transform duration-200 group-active:scale-90 ${isBookmarked ? 'text-foreground' : 'text-icon hover:text-icon-active'}`}>
+              <BookmarkIcon filled={isBookmarked} />
+            </div>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
