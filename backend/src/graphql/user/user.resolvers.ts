@@ -124,11 +124,7 @@ export const userResolvers = {
     },
 
     // Public: Login
-    login: async (
-      _: unknown,
-      args: LoginPayload,
-      context: GraphQLContext
-    ) => {
+    login: async (_: unknown, args: LoginPayload, context: GraphQLContext) => {
       const { accessToken, refreshToken, user } = await userService.login(args);
 
       // Set httpOnly cookies
@@ -141,11 +137,7 @@ export const userResolvers = {
     },
 
     // Public: Refresh access token
-    refreshToken: async (
-      _: unknown,
-      __: unknown,
-      context: GraphQLContext
-    ) => {
+    refreshToken: async (_: unknown, __: unknown, context: GraphQLContext) => {
       const refreshTokenValue = context.req.cookies?.[REFRESH_TOKEN_COOKIE];
 
       if (!refreshTokenValue) {
@@ -169,6 +161,7 @@ export const userResolvers = {
 
     // Protected: Logout
     logout: async (_: unknown, __: unknown, context: GraphQLContext) => {
+      console.log(context, "context");
       const refreshTokenValue = context.req.cookies?.[REFRESH_TOKEN_COOKIE];
 
       if (refreshTokenValue) {

@@ -2,17 +2,13 @@
 
 import React from "react";
 import { useTheme } from "next-themes";
+import { useMutation } from "@apollo/client/react";
 import { useAuthStore } from "@/stores/auth";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import {
-  Sun,
-  Moon,
-  LogOut,
-  AlertCircle,
-  ChevronRight,
-  Monitor
-} from "lucide-react";
+import { Sun, Moon, LogOut, AlertCircle, ChevronRight } from "lucide-react";
+import { LOGOUT_MUTATION } from "@/graphql/mutations/auth";
+import { apolloClient } from "@/lib/apollo-client";
 
 interface SettingsMenuProps {
   variant?: "popover" | "inline";
@@ -20,15 +16,32 @@ interface SettingsMenuProps {
   className?: string;
 }
 
-export function SettingsMenu({ variant = "popover", onClose, className }: SettingsMenuProps) {
+export function SettingsMenu({
+  variant = "popover",
+  onClose,
+  className,
+}: SettingsMenuProps) {
   const { theme, setTheme } = useTheme();
-  const logout = useAuthStore(state => state.logout);
+  const logout = useAuthStore((state) => state.logout);
   const router = useRouter();
+  const [logoutMutation] = useMutation(LOGOUT_MUTATION);
 
-  const handleLogout = () => {
-    logout();
-    router.push("/login");
-    if (onClose) onClose();
+  const handleLogout = async () => {
+    try {
+      // Call the backend logout mutation to clear cookies
+      await logoutMutation();
+    } catch (error) {
+      // Even if the mutation fails (e.g., network error), proceed with local logout
+      console.error("Logout mutation failed:", error);
+    } finally {
+      // Clear Apollo cache
+      await apolloClient.clearStore();
+      // Clear local auth state
+      logout();
+      // Redirect to login page
+      router.replace("/login");
+      if (onClose) onClose();
+    }
   };
 
   const toggleTheme = () => {
@@ -44,7 +57,7 @@ export function SettingsMenu({ variant = "popover", onClose, className }: Settin
         <span className="text-xs font-medium text-muted-foreground capitalize">
           {theme}
         </span>
-      )
+      ),
     },
     {
       label: "Report a problem",
@@ -52,14 +65,15 @@ export function SettingsMenu({ variant = "popover", onClose, className }: Settin
       onClick: () => {
         // Implement report logic
         if (onClose) onClose();
-      }
+      },
     },
     {
       label: "Log out",
       icon: LogOut,
       onClick: handleLogout,
-      className: "text-destructive hover:text-destructive hover:bg-destructive/10"
-    }
+      className:
+        "text-destructive hover:text-destructive hover:bg-destructive/10",
+    },
   ];
 
   if (variant === "inline") {
@@ -78,7 +92,9 @@ export function SettingsMenu({ variant = "popover", onClose, className }: Settin
               <item.icon size={20} strokeWidth={2} />
               <span className="font-semibold text-[15px]">{item.label}</span>
             </div>
-            {item.rightElement || <ChevronRight size={18} className="text-muted-foreground/50" />}
+            {item.rightElement || (
+              <ChevronRight size={18} className="text-muted-foreground/50" />
+            )}
           </button>
         ))}
       </div>
@@ -86,7 +102,9 @@ export function SettingsMenu({ variant = "popover", onClose, className }: Settin
   }
 
   return (
-    <div className={cn("w-full overflow-hidden transition-all mx-4", className)}>
+    <div
+      className={cn("w-full overflow-hidden transition-all mx-2", className)}
+    >
       <div className="space-y-0.5">
         {menuItems.map((item, idx) => (
           <button
