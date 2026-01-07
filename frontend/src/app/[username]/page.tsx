@@ -58,11 +58,26 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
   const user = userData?.getUserByUsername;
 
+  const [activeTab, setActiveTab] = useState<'threads' | 'replies' | 'reposts'>('threads');
+
+  const getFilterFromTab = (tab: typeof activeTab) => {
+    switch (tab) {
+      case 'replies': return 'REPLIES';
+      case 'reposts': return 'REPOSTS';
+      default: return 'THREADS';
+    }
+  };
+
   const { data: postsData, loading: postsLoading } = useQuery<PostsData>(
     GET_USER_POSTS,
     {
-      variables: { userId: user?.id, first: 20 },
+      variables: {
+        userId: user?.id,
+        first: 20,
+        filter: getFilterFromTab(activeTab)
+      },
       skip: !user?.id,
+      fetchPolicy: "cache-and-network", // Ensure fresh data on tab switch
     }
   );
 
@@ -184,6 +199,10 @@ export default function ProfilePage({ params }: ProfilePageProps) {
           <span className="hover:text-foreground cursor-pointer transition-colors">
             {formatCount(followersCount)} followers
           </span>
+          <span>·</span>
+          <span className="hover:text-foreground cursor-pointer transition-colors">
+            {formatCount(user.stats?.followingCount || 0)} following
+          </span>
           {user.website && (
             <>
               <span>·</span>
@@ -264,13 +283,31 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
       {/* Tabs */}
       <div className="flex border-b border-border">
-        <button className="flex-1 py-3 text-center font-bold text-foreground border-b-2 border-foreground">
+        <button
+          onClick={() => setActiveTab('threads')}
+          className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'threads'
+              ? "text-foreground border-foreground"
+              : "text-muted-foreground border-transparent hover:text-foreground"
+            }`}
+        >
           Threads
         </button>
-        <button className="flex-1 py-3 text-center font-medium text-muted-foreground hover:text-foreground transition-colors">
+        <button
+          onClick={() => setActiveTab('replies')}
+          className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'replies'
+              ? "text-foreground border-foreground"
+              : "text-muted-foreground border-transparent hover:text-foreground"
+            }`}
+        >
           Replies
         </button>
-        <button className="flex-1 py-3 text-center font-medium text-muted-foreground hover:text-foreground transition-colors">
+        <button
+          onClick={() => setActiveTab('reposts')}
+          className={`flex-1 py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'reposts'
+              ? "text-foreground border-foreground"
+              : "text-muted-foreground border-transparent hover:text-foreground"
+            }`}
+        >
           Reposts
         </button>
       </div>
@@ -285,7 +322,11 @@ export default function ProfilePage({ params }: ProfilePageProps) {
           </>
         ) : posts.length === 0 ? (
           <div className="py-20 text-center animate-fade-in">
-            <p className="text-muted-foreground text-[15px]">No threads yet</p>
+            <p className="text-muted-foreground text-[15px]">
+              {activeTab === 'threads' && "No threads yet"}
+              {activeTab === 'replies' && "No replies yet"}
+              {activeTab === 'reposts' && "No reposts yet"}
+            </p>
           </div>
         ) : (
           posts.map(({ node: post }) => <PostCard key={post.id} post={post} />)

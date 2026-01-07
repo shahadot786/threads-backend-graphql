@@ -33,8 +33,8 @@ export const GET_POST_REPLIES = gql`
 `;
 
 export const GET_USER_POSTS = gql`
-  query GetUserPosts($userId: ID!, $first: Int, $after: String) {
-    getUserPosts(userId: $userId, first: $first, after: $after) {
+  query GetUserPosts($userId: ID!, $filter: PostFilter, $first: Int, $after: String) {
+    getUserPosts(userId: $userId, filter: $filter, first: $first, after: $after) {
       edges {
         cursor
         node {

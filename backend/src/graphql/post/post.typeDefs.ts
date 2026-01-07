@@ -15,6 +15,22 @@ export const postTypeDefs = /* GraphQL */ `
     GIF
   }
 
+  enum PostFilter {
+    THREADS
+    REPLIES
+    REPOSTS
+  }
+
+  # =========================
+  # Core Post Types
+  # =========================
+  
+  # ... (leaving this part out of replacement to minimize size, wait, I need to match context)
+  # Actually better to just do the enum block and the query block separately or carefully.
+
+  # Let's do the enum first.
+
+
   # =========================
   # Core Post Types
   # =========================
@@ -132,7 +148,7 @@ export const postTypeDefs = /* GraphQL */ `
     getPostReplies(postId: ID!, first: Int = 20, after: String): PostConnection!
 
     # User posts (PUBLIC - respects privacy settings)
-    getUserPosts(userId: ID!, first: Int = 20, after: String): PostConnection!
+    getUserPosts(userId: ID!, filter: PostFilter = THREADS, first: Int = 20, after: String): PostConnection!
 
     # Home feed (PROTECTED - authenticated users only)
     getHomeFeed(first: Int = 20, after: String): PostConnection!

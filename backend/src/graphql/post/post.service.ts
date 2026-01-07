@@ -362,12 +362,13 @@ export const postService = {
   },
 
   // =====================
-  // GET USER POSTS (with pagination)
+  // GET USER POSTS (with pagination and optional filter)
   // =====================
   async getUserPosts(
     userId: string,
     currentUserId: string | null,
-    pagination: PaginationInput = {}
+    pagination: PaginationInput = {},
+    filter: "THREADS" | "REPLIES" | "REPOSTS" = "THREADS"
   ) {
     const { first = 20, after } = pagination;
 
@@ -405,73 +406,157 @@ export const postService = {
       cursorDate = createdAt;
     }
 
-    // Fetch user's original posts
-    const postsWhereClause: Prisma.PostWhereInput = {
-      authorId: userId,
-      parentPostId: null,
-      ...(cursorDate && { createdAt: { lt: cursorDate } }),
-    };
+    // ---------------------------------------------------------
+    // CASE 1: THREADS (Original parent posts + Reposts) - DEFAULT behavior
+    // ---------------------------------------------------------
+    if (filter === "THREADS") {
+      // Fetch user's original posts (no replies)
+      const postsWhereClause: Prisma.PostWhereInput = {
+        authorId: userId,
+        parentPostId: null,
+        ...(cursorDate && { createdAt: { lt: cursorDate } }),
+      };
 
-    const originalPosts = await prisma.post.findMany({
-      where: postsWhereClause,
-      take: first + 1,
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      include: {
-        author: true,
-        media: { orderBy: { position: "asc" } },
-      },
-    });
+      const originalPosts = await prisma.post.findMany({
+        where: postsWhereClause,
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        include: {
+          author: true,
+          media: { orderBy: { position: "asc" } },
+        },
+      });
 
-    // Fetch user's reposts
-    const repostsWhereClause: Prisma.RepostWhereInput = {
-      userId: userId,
-      post: { parentPostId: null },
-      ...(cursorDate && { createdAt: { lt: cursorDate } }),
-    };
+      // Fetch user's reposts
+      const repostsWhereClause: Prisma.RepostWhereInput = {
+        userId: userId,
+        post: { parentPostId: null },
+        ...(cursorDate && { createdAt: { lt: cursorDate } }),
+      };
 
-    const reposts = await prisma.repost.findMany({
-      where: repostsWhereClause,
-      take: first + 1,
-      orderBy: [{ createdAt: "desc" }],
-      include: {
-        user: true,
-        post: {
-          include: {
-            author: true,
-            media: { orderBy: { position: "asc" } },
+      const reposts = await prisma.repost.findMany({
+        where: repostsWhereClause,
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }],
+        include: {
+          user: true,
+          post: {
+            include: {
+              author: true,
+              media: { orderBy: { position: "asc" } },
+            },
           },
         },
-      },
-    });
+      });
 
-    // Merge posts and reposts
-    const feedItems = [
-      ...originalPosts.map(post => ({
-        post: { ...post, repostedBy: null as typeof reposts[0]["user"] | null },
-        sortDate: post.createdAt,
-      })),
-      ...reposts.map(repost => ({
-        post: { ...repost.post, repostedBy: repost.user },
-        sortDate: repost.createdAt,
-      })),
-    ];
+      // Merge posts and reposts
+      const feedItems = [
+        ...originalPosts.map(post => ({
+          post: { ...post, repostedBy: null as typeof reposts[0]["user"] | null },
+          sortDate: post.createdAt,
+        })),
+        ...reposts.map(repost => ({
+          post: { ...repost.post, repostedBy: repost.user },
+          sortDate: repost.createdAt,
+        })),
+      ];
 
-    // Sort by date descending
-    feedItems.sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
+      // Sort by date descending
+      feedItems.sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
 
-    const hasNextPage = feedItems.length > first;
-    const edges = feedItems.slice(0, first).map((item) => ({
-      cursor: encodeCursor(item.sortDate, item.post.id),
-      node: item.post,
-    }));
+      // Slice and paginate
+      const hasNextPage = feedItems.length > first;
+      const edges = feedItems.slice(0, first).map((item) => ({
+        cursor: encodeCursor(item.sortDate, item.post.id),
+        node: item.post,
+      }));
 
-    return {
-      edges,
-      pageInfo: {
-        hasNextPage,
-        endCursor: getEndCursor(edges),
-      },
-    };
+      return {
+        edges,
+        pageInfo: {
+          hasNextPage,
+          endCursor: getEndCursor(edges),
+        },
+      };
+    }
+
+    // ---------------------------------------------------------
+    // CASE 2: REPLIES (Posts that are responses to others)
+    // ---------------------------------------------------------
+    if (filter === "REPLIES") {
+      const repliesWhereClause: Prisma.PostWhereInput = {
+        authorId: userId,
+        parentPostId: { not: null }, // MUST be a reply
+        ...(cursorDate && { createdAt: { lt: cursorDate } }),
+      };
+
+      const replies = await prisma.post.findMany({
+        where: repliesWhereClause,
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        include: {
+          author: true,
+          media: { orderBy: { position: "asc" } },
+          parentPost: { include: { author: true } } // Include parent context
+        },
+      });
+
+      const hasNextPage = replies.length > first;
+      const edges = replies.slice(0, first).map((post) => ({
+        cursor: encodeCursor(post.createdAt, post.id),
+        node: post,
+      }));
+
+      return {
+        edges,
+        pageInfo: {
+          hasNextPage,
+          endCursor: getEndCursor(edges),
+        },
+      };
+    }
+
+    // ---------------------------------------------------------
+    // CASE 3: REPOSTS (Only Reposts)
+    // ---------------------------------------------------------
+    if (filter === "REPOSTS") {
+      const repostsWhereClause: Prisma.RepostWhereInput = {
+        userId: userId,
+        ...(cursorDate && { createdAt: { lt: cursorDate } }),
+      };
+
+      const reposts = await prisma.repost.findMany({
+        where: repostsWhereClause,
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }],
+        include: {
+          user: true,
+          post: {
+            include: {
+              author: true,
+              media: { orderBy: { position: "asc" } },
+            },
+          },
+        },
+      });
+
+      const hasNextPage = reposts.length > first;
+      const edges = reposts.slice(0, first).map((repost) => ({
+        cursor: encodeCursor(repost.createdAt, repost.post.id),
+        node: { ...repost.post, repostedBy: repost.user },
+      }));
+
+      return {
+        edges,
+        pageInfo: {
+          hasNextPage,
+          endCursor: getEndCursor(edges),
+        },
+      };
+    }
+    
+    // Fallback empty return if unknown filter
+    return { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
   },
 
   // =====================

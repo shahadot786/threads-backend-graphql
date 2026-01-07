@@ -118,13 +118,13 @@ export const postResolvers = {
     // Get user posts (PUBLIC - but respects privacy settings)
     getUserPosts: async (
       _: unknown,
-      args: { userId: string; first?: number; after?: string },
+      args: { userId: string; filter?: "THREADS" | "REPLIES" | "REPOSTS"; first?: number; after?: string },
       context: GraphQLContext
     ) => {
       return postService.getUserPosts(args.userId, context.user?.id ?? null, {
         first: args.first ?? 20,
         after: args.after,
-      });
+      }, args.filter);
     },
 
     // Get home feed (PROTECTED - authenticated users only)
