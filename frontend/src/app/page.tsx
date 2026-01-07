@@ -5,8 +5,8 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { PostCard } from "@/components/post/PostCard";
 import { PostSkeleton } from "@/components/ui/Loading";
-// import { useAuthStore } from "@/stores/auth";
-import { GET_TRENDING_POSTS } from "@/graphql/queries/post";
+import { useAuthStore } from "@/stores/auth";
+import { GET_TRENDING_POSTS, GET_HOME_FEED } from "@/graphql/queries/post";
 import type { PostConnection } from "@/types";
 
 interface TrendingPostsData {
@@ -14,20 +14,25 @@ interface TrendingPostsData {
 }
 
 export default function HomePage() {
-  // const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  // const isLoading = useAuthStore(state => state.isLoading);
+  const isAuthenticated = useAuthStore((state: any) => state.isAuthenticated);
+  const isLoading = useAuthStore((state: any) => state.isLoading);
+
+  const query = isAuthenticated ? GET_HOME_FEED : GET_TRENDING_POSTS;
+  const queryField = isAuthenticated ? "getHomeFeed" : "getTrendingPosts";
 
   const {
     data,
     loading: postsLoading,
     fetchMore,
-  } = useQuery<TrendingPostsData>(GET_TRENDING_POSTS, {
+  } = useQuery<any>(query, {
     variables: { first: 20 },
     notifyOnNetworkStatusChange: true,
+    // skip: isLoading, // Only query if we know the auth state
   });
 
-  const posts = data?.getTrendingPosts?.edges || [];
-  const pageInfo = data?.getTrendingPosts?.pageInfo;
+  const response = data?.[queryField];
+  const posts = response?.edges || [];
+  const pageInfo = response?.pageInfo;
 
   const handleLoadMore = () => {
     if (!pageInfo?.hasNextPage || postsLoading) return;
@@ -63,7 +68,7 @@ export default function HomePage() {
         ) : (
           // Posts list
           <>
-            {posts.map(({ node: post }) => (
+            {posts.map(({ node: post }: { node: any }) => (
               <PostCard key={post.id} post={post} />
             ))}
 

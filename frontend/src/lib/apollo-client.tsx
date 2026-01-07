@@ -123,9 +123,8 @@ export const apolloClient = new ApolloClient({
         fields: {
           getHomeFeed: {
             keyArgs: false,
-            merge(existing, incoming) {
-              if (!existing) return incoming;
-              // Deduplicate by cursor
+            merge(existing, incoming, { args }) {
+              if (!existing || !args?.after) return incoming;
               const existingCursors = new Set(
                 existing.edges.map((e: { cursor: string }) => e.cursor)
               );
@@ -140,9 +139,56 @@ export const apolloClient = new ApolloClient({
           },
           getTrendingPosts: {
             keyArgs: false,
-            merge(existing, incoming) {
-              if (!existing) return incoming;
-              // Deduplicate by cursor
+            merge(existing, incoming, { args }) {
+              if (!existing || !args?.after) return incoming;
+              const existingCursors = new Set(
+                existing.edges.map((e: { cursor: string }) => e.cursor)
+              );
+              const newEdges = incoming.edges.filter(
+                (e: { cursor: string }) => !existingCursors.has(e.cursor)
+              );
+              return {
+                ...incoming,
+                edges: [...existing.edges, ...newEdges],
+              };
+            },
+          },
+          getUserPosts: {
+            keyArgs: ["userId"],
+            merge(existing, incoming, { args }) {
+              if (!existing || !args?.after) return incoming;
+              const existingCursors = new Set(
+                existing.edges.map((e: { cursor: string }) => e.cursor)
+              );
+              const newEdges = incoming.edges.filter(
+                (e: { cursor: string }) => !existingCursors.has(e.cursor)
+              );
+              return {
+                ...incoming,
+                edges: [...existing.edges, ...newEdges],
+              };
+            },
+          },
+          getPostReplies: {
+            keyArgs: ["postId"],
+            merge(existing, incoming, { args }) {
+              if (!existing || !args?.after) return incoming;
+              const existingCursors = new Set(
+                existing.edges.map((e: { cursor: string }) => e.cursor)
+              );
+              const newEdges = incoming.edges.filter(
+                (e: { cursor: string }) => !existingCursors.has(e.cursor)
+              );
+              return {
+                ...incoming,
+                edges: [...existing.edges, ...newEdges],
+              };
+            },
+          },
+          getMyBookmarks: {
+            keyArgs: false,
+            merge(existing, incoming, { args }) {
+              if (!existing || !args?.after) return incoming;
               const existingCursors = new Set(
                 existing.edges.map((e: { cursor: string }) => e.cursor)
               );

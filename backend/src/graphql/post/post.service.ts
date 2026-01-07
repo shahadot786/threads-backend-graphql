@@ -113,14 +113,14 @@ export const postService = {
         ...postData,
         ...(media && media.length > 0
           ? {
-              media: {
-                create: media.map((m, index) => ({
-                  mediaType: m.mediaType,
-                  mediaUrl: m.mediaUrl,
-                  position: m.position ?? index,
-                })),
-              },
-            }
+            media: {
+              create: media.map((m, index) => ({
+                mediaType: m.mediaType,
+                mediaUrl: m.mediaUrl,
+                position: m.position ?? index,
+              })),
+            },
+          }
           : {}),
       };
 
@@ -301,13 +301,13 @@ export const postService = {
     if (post.author.is_private && post.authorId !== currentUserId) {
       const isFollowing = currentUserId
         ? await prisma.follow.findUnique({
-            where: {
-              followerId_followingId: {
-                followerId: currentUserId,
-                followingId: post.authorId,
-              },
+          where: {
+            followerId_followingId: {
+              followerId: currentUserId,
+              followingId: post.authorId,
             },
-          })
+          },
+        })
         : null;
 
       if (!isFollowing) {
@@ -385,13 +385,13 @@ export const postService = {
     if (targetUser.is_private && userId !== currentUserId) {
       const isFollowing = currentUserId
         ? await prisma.follow.findUnique({
-            where: {
-              followerId_followingId: {
-                followerId: currentUserId,
-                followingId: userId,
-              },
+          where: {
+            followerId_followingId: {
+              followerId: currentUserId,
+              followingId: userId,
             },
-          })
+          },
+        })
         : null;
 
       if (!isFollowing) {
@@ -440,21 +440,10 @@ export const postService = {
   // =====================
   // GET HOME FEED (posts from followed users)
   // =====================
-  async getHomeFeed(userId: string, pagination: PaginationInput = {}) {
+  async getHomeFeed(_userId: string, pagination: PaginationInput = {}) {
     const { first = 20, after } = pagination;
 
-    // Get IDs of users the current user follows
-    const following = await prisma.follow.findMany({
-      where: { followerId: userId },
-      select: { followingId: true },
-    });
-
-    const followingIds = following.map((f) => f.followingId);
-    // Include own posts in feed
-    followingIds.push(userId);
-
     const whereClause: Prisma.PostWhereInput = {
-      authorId: { in: followingIds },
       parentPostId: null, // Only top-level posts
       visibility: { in: ["PUBLIC", "FOLLOWERS"] },
     };
@@ -528,11 +517,18 @@ export const postService = {
       },
     });
 
-    // Sort by engagement (likes + replies)
-    posts.sort(
-      (a, b) =>
-        b._count.likes + b._count.replies - (a._count.likes + a._count.replies)
-    );
+    // Sort by engagement (likes + replies), fallback to recency
+    posts.sort((a, b) => {
+      const scoreA = (a._count?.likes || 0) + (a._count?.replies || 0);
+      const scoreB = (b._count?.likes || 0) + (b._count?.replies || 0);
+
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
+
+      // If scores are equal, sort by createdAt desc
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
 
     const hasNextPage = posts.length > first;
     const edges = posts.slice(0, first).map((post) => ({
