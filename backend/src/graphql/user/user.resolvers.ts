@@ -144,8 +144,11 @@ export const userResolvers = {
         throw Errors.unauthenticated("No refresh token provided");
       }
 
-      const { accessToken, refreshToken: newRefreshToken, user } =
-        await userService.refreshAccessToken(refreshTokenValue);
+      const {
+        accessToken,
+        refreshToken: newRefreshToken,
+        user,
+      } = await userService.refreshAccessToken(refreshTokenValue);
 
       // Set new cookies
       setAuthCookies(context.res, accessToken, newRefreshToken);
@@ -158,7 +161,6 @@ export const userResolvers = {
 
     // Protected: Logout
     logout: async (_: unknown, __: unknown, context: GraphQLContext) => {
-      console.log(context, "context");
       const refreshTokenValue = context.req.cookies?.[REFRESH_TOKEN_COOKIE];
 
       if (refreshTokenValue) {

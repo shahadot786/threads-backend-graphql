@@ -518,7 +518,7 @@ export const userService = {
     });
 
     // In a real app, you would send this token via email.
-    console.log(`[PASS_RESET] Token for ${email}: ${token}`);
+    // console.log(`[PASS_RESET] Token for ${email}: ${token}`);
 
     return true;
   },
