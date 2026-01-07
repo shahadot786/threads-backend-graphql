@@ -399,21 +399,21 @@ export const postService = {
       }
     }
 
-    const whereClause: Prisma.PostWhereInput = {
-      authorId: userId,
-      parentPostId: null, // Only top-level posts, not replies
-    };
-
+    let cursorDate: Date | undefined;
     if (after) {
-      const { createdAt, id } = decodeCursor(after);
-      whereClause.OR = [
-        { createdAt: { lt: createdAt } },
-        { createdAt, id: { lt: id } },
-      ];
+      const { createdAt } = decodeCursor(after);
+      cursorDate = createdAt;
     }
 
-    const posts = await prisma.post.findMany({
-      where: whereClause,
+    // Fetch user's original posts
+    const postsWhereClause: Prisma.PostWhereInput = {
+      authorId: userId,
+      parentPostId: null,
+      ...(cursorDate && { createdAt: { lt: cursorDate } }),
+    };
+
+    const originalPosts = await prisma.post.findMany({
+      where: postsWhereClause,
       take: first + 1,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       include: {
@@ -422,10 +422,47 @@ export const postService = {
       },
     });
 
-    const hasNextPage = posts.length > first;
-    const edges = posts.slice(0, first).map((post) => ({
-      cursor: encodeCursor(post.createdAt, post.id),
-      node: post,
+    // Fetch user's reposts
+    const repostsWhereClause: Prisma.RepostWhereInput = {
+      userId: userId,
+      post: { parentPostId: null },
+      ...(cursorDate && { createdAt: { lt: cursorDate } }),
+    };
+
+    const reposts = await prisma.repost.findMany({
+      where: repostsWhereClause,
+      take: first + 1,
+      orderBy: [{ createdAt: "desc" }],
+      include: {
+        user: true,
+        post: {
+          include: {
+            author: true,
+            media: { orderBy: { position: "asc" } },
+          },
+        },
+      },
+    });
+
+    // Merge posts and reposts
+    const feedItems = [
+      ...originalPosts.map(post => ({
+        post: { ...post, repostedBy: null as typeof reposts[0]["user"] | null },
+        sortDate: post.createdAt,
+      })),
+      ...reposts.map(repost => ({
+        post: { ...repost.post, repostedBy: repost.user },
+        sortDate: repost.createdAt,
+      })),
+    ];
+
+    // Sort by date descending
+    feedItems.sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
+
+    const hasNextPage = feedItems.length > first;
+    const edges = feedItems.slice(0, first).map((item) => ({
+      cursor: encodeCursor(item.sortDate, item.post.id),
+      node: item.post,
     }));
 
     return {
@@ -438,26 +475,35 @@ export const postService = {
   },
 
   // =====================
-  // GET HOME FEED (posts from followed users)
+  // GET HOME FEED (posts from followed users + their reposts)
   // =====================
   async getHomeFeed(_userId: string, pagination: PaginationInput = {}) {
     const { first = 20, after } = pagination;
 
-    const whereClause: Prisma.PostWhereInput = {
-      parentPostId: null, // Only top-level posts
-      visibility: { in: ["PUBLIC", "FOLLOWERS"] },
-    };
+    // Get the user's following list
+    const following = await prisma.follow.findMany({
+      where: { followerId: _userId },
+      select: { followingId: true },
+    });
+    const followingIds = following.map(f => f.followingId);
+    followingIds.push(_userId); // Include own posts
 
+    let cursorDate: Date | undefined;
     if (after) {
-      const { createdAt, id } = decodeCursor(after);
-      whereClause.OR = [
-        { createdAt: { lt: createdAt } },
-        { createdAt, id: { lt: id } },
-      ];
+      const { createdAt } = decodeCursor(after);
+      cursorDate = createdAt;
     }
 
-    const posts = await prisma.post.findMany({
-      where: whereClause,
+    // Fetch original posts
+    const postsWhereClause: Prisma.PostWhereInput = {
+      parentPostId: null,
+      visibility: { in: ["PUBLIC", "FOLLOWERS"] },
+      authorId: { in: followingIds },
+      ...(cursorDate && { createdAt: { lt: cursorDate } }),
+    };
+
+    const originalPosts = await prisma.post.findMany({
+      where: postsWhereClause,
       take: first + 1,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       include: {
@@ -466,10 +512,58 @@ export const postService = {
       },
     });
 
-    const hasNextPage = posts.length > first;
-    const edges = posts.slice(0, first).map((post) => ({
-      cursor: encodeCursor(post.createdAt, post.id),
-      node: post,
+    // Fetch reposts from followed users
+    const repostsWhereClause: Prisma.RepostWhereInput = {
+      userId: { in: followingIds },
+      post: {
+        parentPostId: null,
+        visibility: "PUBLIC",
+      },
+      ...(cursorDate && { createdAt: { lt: cursorDate } }),
+    };
+
+    const reposts = await prisma.repost.findMany({
+      where: repostsWhereClause,
+      take: first + 1,
+      orderBy: [{ createdAt: "desc" }],
+      include: {
+        user: true,
+        post: {
+          include: {
+            author: true,
+            media: { orderBy: { position: "asc" } },
+          },
+        },
+      },
+    });
+
+    // Merge posts and reposts, adding repostedBy info
+    const feedItems = [
+      ...originalPosts.map(post => ({
+        post: { ...post, repostedBy: null as typeof reposts[0]["user"] | null },
+        sortDate: post.createdAt,
+      })),
+      ...reposts.map(repost => ({
+        post: { ...repost.post, repostedBy: repost.user },
+        sortDate: repost.createdAt,
+      })),
+    ];
+
+    // Sort by date descending
+    feedItems.sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
+
+    // Deduplicate (same post might appear as original and as repost)
+    const seenPostIds = new Set<string>();
+    const uniqueFeedItems = feedItems.filter(item => {
+      if (seenPostIds.has(item.post.id)) return false;
+      seenPostIds.add(item.post.id);
+      return true;
+    });
+
+    const hasNextPage = uniqueFeedItems.length > first;
+    const edges = uniqueFeedItems.slice(0, first).map((item) => ({
+      cursor: encodeCursor(item.sortDate, item.post.id),
+      node: item.post,
     }));
 
     return {
@@ -482,26 +576,26 @@ export const postService = {
   },
 
   // =====================
-  // GET PUBLIC FEED (public posts, sorted by createdAt for guests)
+  // GET PUBLIC FEED (public posts + reposts, sorted by createdAt for guests)
   // =====================
   async getPublicFeed(pagination: PaginationInput = {}) {
     const { first = 20, after } = pagination;
 
-    const whereClause: Prisma.PostWhereInput = {
-      parentPostId: null, // Only top-level posts
-      visibility: "PUBLIC",
-    };
-
+    let cursorDate: Date | undefined;
     if (after) {
-      const { createdAt, id } = decodeCursor(after);
-      whereClause.OR = [
-        { createdAt: { lt: createdAt } },
-        { createdAt, id: { lt: id } },
-      ];
+      const { createdAt } = decodeCursor(after);
+      cursorDate = createdAt;
     }
 
-    const posts = await prisma.post.findMany({
-      where: whereClause,
+    // Fetch original public posts
+    const postsWhereClause: Prisma.PostWhereInput = {
+      parentPostId: null,
+      visibility: "PUBLIC",
+      ...(cursorDate && { createdAt: { lt: cursorDate } }),
+    };
+
+    const originalPosts = await prisma.post.findMany({
+      where: postsWhereClause,
       take: first + 1,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       include: {
@@ -510,10 +604,57 @@ export const postService = {
       },
     });
 
-    const hasNextPage = posts.length > first;
-    const edges = posts.slice(0, first).map((post) => ({
-      cursor: encodeCursor(post.createdAt, post.id),
-      node: post,
+    // Fetch recent reposts
+    const repostsWhereClause: Prisma.RepostWhereInput = {
+      post: {
+        parentPostId: null,
+        visibility: "PUBLIC",
+      },
+      ...(cursorDate && { createdAt: { lt: cursorDate } }),
+    };
+
+    const reposts = await prisma.repost.findMany({
+      where: repostsWhereClause,
+      take: first + 1,
+      orderBy: [{ createdAt: "desc" }],
+      include: {
+        user: true,
+        post: {
+          include: {
+            author: true,
+            media: { orderBy: { position: "asc" } },
+          },
+        },
+      },
+    });
+
+    // Merge posts and reposts
+    const feedItems = [
+      ...originalPosts.map(post => ({
+        post: { ...post, repostedBy: null as typeof reposts[0]["user"] | null },
+        sortDate: post.createdAt,
+      })),
+      ...reposts.map(repost => ({
+        post: { ...repost.post, repostedBy: repost.user },
+        sortDate: repost.createdAt,
+      })),
+    ];
+
+    // Sort by date descending
+    feedItems.sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
+
+    // Deduplicate
+    const seenPostIds = new Set<string>();
+    const uniqueFeedItems = feedItems.filter(item => {
+      if (seenPostIds.has(item.post.id)) return false;
+      seenPostIds.add(item.post.id);
+      return true;
+    });
+
+    const hasNextPage = uniqueFeedItems.length > first;
+    const edges = uniqueFeedItems.slice(0, first).map((item) => ({
+      cursor: encodeCursor(item.sortDate, item.post.id),
+      node: item.post,
     }));
 
     return {
@@ -834,5 +975,79 @@ export const postService = {
       include: { mentionedUser: true },
     });
     return mentions.map((m) => m.mentionedUser);
+  },
+
+  // =====================
+  // REPOST OPERATIONS
+  // =====================
+  async repostPost(userId: string, postId: string) {
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      select: { id: true, authorId: true },
+    });
+
+    if (!post) {
+      throw Errors.notFound("Post");
+    }
+
+    // Prevent users from reposting their own posts
+    if (post.authorId === userId) {
+      throw Errors.badRequest("You cannot repost your own post");
+    }
+
+    // Check if already reposted
+    const existingRepost = await prisma.repost.findUnique({
+      where: { userId_postId: { userId, postId } },
+    });
+
+    if (existingRepost) {
+      throw Errors.conflict("You have already reposted this post");
+    }
+
+    await prisma.repost.create({
+      data: { userId, postId },
+    });
+
+    // Create notification for post author (if not self-repost)
+    if (post.authorId !== userId) {
+      await prisma.notification.create({
+        data: {
+          userId: post.authorId,
+          actorId: userId,
+          type: "REPOST",
+          entityId: postId,
+        },
+      });
+    }
+
+    return true;
+  },
+
+  async unrepostPost(userId: string, postId: string) {
+    const repost = await prisma.repost.findUnique({
+      where: { userId_postId: { userId, postId } },
+    });
+
+    if (!repost) {
+      throw Errors.notFound("Repost");
+    }
+
+    await prisma.repost.delete({
+      where: { userId_postId: { userId, postId } },
+    });
+
+    return true;
+  },
+
+  async getRepostsCount(postId: string) {
+    return prisma.repost.count({ where: { postId } });
+  },
+
+  async getIsReposted(postId: string, userId: string | null) {
+    if (!userId) return false;
+    const repost = await prisma.repost.findUnique({
+      where: { userId_postId: { userId, postId } },
+    });
+    return !!repost;
   },
 };

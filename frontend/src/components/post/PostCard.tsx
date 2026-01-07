@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar";
 import { PostActions } from "./PostActions";
 import { formatRelativeTime } from "@/lib/utils";
 import type { Post } from "@/types";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Repeat2 } from "lucide-react";
 
 interface PostCardProps {
   post: Post;
@@ -14,10 +15,37 @@ interface PostCardProps {
 }
 
 export function PostCard({ post, showThread = false }: PostCardProps) {
-  const { author, content, createdAt, media } = post;
+  const router = useRouter();
+  const { author, content, createdAt, media, repostedBy } = post;
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on links, buttons, or interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('a, button, video, [role="button"]')) {
+      return;
+    }
+    router.push(`/post/${post.id}`);
+  };
 
   return (
-    <article className="relative px-4 py-4 border-b border-border hover:bg-secondary/20 transition-all duration-300 cursor-pointer group/post">
+    <article
+      onClick={handleCardClick}
+      className="relative px-4 py-4 border-b border-border hover:bg-secondary/20 transition-all duration-300 cursor-pointer group/post"
+    >
+      {/* Reposted By Indicator */}
+      {repostedBy && (
+        <div className="flex items-center gap-2 mb-2 ml-12 text-muted-foreground text-xs">
+          <Repeat2 size={14} className="text-[rgb(0,186,124)]" />
+          <Link
+            href={`/@${repostedBy.username}`}
+            className="hover:underline font-medium"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {repostedBy.username} reposted
+          </Link>
+        </div>
+      )}
+
       <div className="flex gap-4">
         {/* Left Column: Avatar & Thread Line */}
         <div className="flex flex-col items-center shrink-0 relative">

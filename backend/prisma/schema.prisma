@@ -77,6 +77,7 @@ model User {
   likes       PostLike[]
   bookmarks   Bookmark[]
   mentionedIn PostMention[] @relation("mentionedUser")
+  reposts     Repost[]
 
   @@map("users")
 }
@@ -173,6 +174,7 @@ model Post {
   media     PostMedia[]
   hashtags  PostHashtag[]
   mentions  PostMention[]
+  reposts   Repost[]
 
   @@index([authorId])
   @@index([parentPostId])
@@ -267,4 +269,22 @@ model PostMention {
 
   @@unique([postId, mentionedUserId])
   @@map("post_mentions")
+}
+
+// =====================
+// REPOSTS
+// =====================
+
+// Reposts (sharing other's posts)
+model Repost {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  postId    String   @map("post_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@map("reposts")
 }

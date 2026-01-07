@@ -47,6 +47,16 @@ export const postResolvers = {
       return postService.getIsBookmarked(parent.id, context.user?.id ?? null);
     },
 
+    // Is current user reposting this post
+    isReposted: async (parent: PostParent, _: unknown, context: GraphQLContext) => {
+      return postService.getIsReposted(parent.id, context.user?.id ?? null);
+    },
+
+    // Reposts count
+    repostsCount: async (parent: PostParent) => {
+      return postService.getRepostsCount(parent.id);
+    },
+
     // Get post hashtags
     hashtags: async (parent: PostParent) => {
       return postService.getPostHashtags(parent.id);
@@ -259,6 +269,26 @@ export const postResolvers = {
     ) => {
       const user = requireAuth(context);
       return postService.unbookmarkPost(user.id, args.postId);
+    },
+
+    // Repost post (PROTECTED)
+    repostPost: async (
+      _: unknown,
+      args: { postId: string },
+      context: GraphQLContext
+    ) => {
+      const user = requireAuth(context);
+      return postService.repostPost(user.id, args.postId);
+    },
+
+    // Unrepost post (PROTECTED)
+    unrepostPost: async (
+      _: unknown,
+      args: { postId: string },
+      context: GraphQLContext
+    ) => {
+      const user = requireAuth(context);
+      return postService.unrepostPost(user.id, args.postId);
     },
   },
 };

@@ -31,8 +31,11 @@ export interface Post {
   parentPost?: Post | null;
   repliesCount: number;
   likesCount: number;
+  repostsCount: number;
   isLiked: boolean;
   isBookmarked: boolean;
+  isReposted: boolean;
+  repostedBy?: User | null;
   media?: PostMedia[] | null;
   hashtags?: Hashtag[] | null;
   mentions?: User[] | null;

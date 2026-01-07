@@ -27,8 +27,11 @@ export const postTypeDefs = /* GraphQL */ `
     parentPost: Post
     repliesCount: Int!
     likesCount: Int!
+    repostsCount: Int!
     isLiked: Boolean!
     isBookmarked: Boolean!
+    isReposted: Boolean!
+    repostedBy: User
     media: [PostMedia!]
     hashtags: [Hashtag!]
     mentions: [User!]
@@ -167,5 +170,9 @@ export const postTypeDefs = /* GraphQL */ `
     # Bookmarks (PROTECTED)
     bookmarkPost(postId: ID!): Boolean!
     unbookmarkPost(postId: ID!): Boolean!
+
+    # Reposts (PROTECTED)
+    repostPost(postId: ID!): Boolean!
+    unrepostPost(postId: ID!): Boolean!
   }
 `;

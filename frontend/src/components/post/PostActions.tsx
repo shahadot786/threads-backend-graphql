@@ -8,7 +8,9 @@ import {
   LIKE_POST_MUTATION,
   UNLIKE_POST_MUTATION,
   BOOKMARK_POST_MUTATION,
-  UNBOOKMARK_POST_MUTATION
+  UNBOOKMARK_POST_MUTATION,
+  REPOST_POST_MUTATION,
+  UNREPOST_POST_MUTATION
 } from "@/graphql/mutations/post";
 import { formatCount } from "@/lib/utils";
 import type { Post } from "@/types";
@@ -31,8 +33,8 @@ const CommentIcon = () => (
   </svg>
 );
 
-const RepostIcon = () => (
-  <svg aria-label="Repost" color="currentColor" fill="currentColor" height="20" role="img" viewBox="0 0 24 24" width="20">
+const RepostIcon = ({ filled }: { filled: boolean }) => (
+  <svg aria-label="Repost" color="currentColor" fill="currentColor" height="20" role="img" viewBox="0 0 24 24" width="20" className={filled ? "text-[rgb(0,186,124)]" : ""}>
     <path fill="none" d="M0 0h24v24H0z"></path>
     <path d="M19.998 9.497a1 1 0 0 0-1 1v4.228a3.274 3.274 0 0 1-3.27 3.27h-5.313l1.791-1.787a1 1 0 0 0-1.412-1.416L7.29 18.287a1.004 1.004 0 0 0-.294.707v.001c0 .023.012.042.013.065a.923.923 0 0 0 .281.643l3.502 3.504a1 1 0 0 0 1.414-1.414l-1.797-1.798h5.318a5.276 5.276 0 0 0 5.27-5.27v-4.228a1 1 0 0 0-1-1Zm-6.41-3.496-1.795 1.795a1 1 0 1 0 1.414 1.414l3.5-3.5a1.003 1.003 0 0 0 0-1.417l-3.5-3.5a1 1 0 0 0-1.414 1.414l1.794 1.794H8.27A5.277 5.277 0 0 0 3 8.999v4.229a1 1 0 0 0 2 0V9.002a3.276 3.276 0 0 1 3.27-3.27h5.319Z"></path>
   </svg>
@@ -58,11 +60,15 @@ export function PostActions({ post, onUpdate }: PostActionsProps) {
   const [isLiked, setIsLiked] = useState(post.isLiked);
   const [likesCount, setLikesCount] = useState(post.likesCount);
   const [isBookmarked, setIsBookmarked] = useState(post.isBookmarked);
+  const [isReposted, setIsReposted] = useState(post.isReposted);
+  const [repostsCount, setRepostsCount] = useState(post.repostsCount);
 
   const [likePost] = useMutation(LIKE_POST_MUTATION);
   const [unlikePost] = useMutation(UNLIKE_POST_MUTATION);
   const [bookmarkPost] = useMutation(BOOKMARK_POST_MUTATION);
   const [unbookmarkPost] = useMutation(UNBOOKMARK_POST_MUTATION);
+  const [repostPost] = useMutation(REPOST_POST_MUTATION);
+  const [unrepostPost] = useMutation(UNREPOST_POST_MUTATION);
 
   const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -99,15 +105,32 @@ export function PostActions({ post, onUpdate }: PostActionsProps) {
     openReplyModal(post);
   };
 
-  const handleRepost = (e: React.MouseEvent) => {
+  const handleRepost = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!isAuthenticated) {
       openLoginModal();
       return;
     }
-    // Repost functionality coming soon
-    showToast("Repost coming soon!");
+
+    try {
+      if (isReposted) {
+        setIsReposted(false);
+        setRepostsCount(prev => prev - 1);
+        await unrepostPost({ variables: { postId: post.id } });
+        showToast("Repost removed");
+      } else {
+        setIsReposted(true);
+        setRepostsCount(prev => prev + 1);
+        await repostPost({ variables: { postId: post.id } });
+        showToast("Reposted!");
+      }
+      onUpdate?.({ isReposted: !isReposted, repostsCount: isReposted ? repostsCount - 1 : repostsCount + 1 });
+    } catch {
+      setIsReposted(!isReposted);
+      setRepostsCount(isReposted ? repostsCount + 1 : repostsCount - 1);
+      showToast("Failed to repost");
+    }
   };
 
   const handleShare = async (e: React.MouseEvent) => {
@@ -192,11 +215,16 @@ export function PostActions({ post, onUpdate }: PostActionsProps) {
 
       <button
         onClick={handleRepost}
-        className="group p-2 rounded-full hover:bg-hover transition-colors text-icon hover:text-icon-active"
+        className={`group flex items-center gap-1.5 p-2 rounded-full hover:bg-hover transition-colors ${isReposted ? 'text-[rgb(0,186,124)]' : 'text-icon hover:text-icon-active'}`}
       >
         <div className="transition-transform duration-200 group-active:scale-90">
-          <RepostIcon />
+          <RepostIcon filled={isReposted} />
         </div>
+        {repostsCount > 0 && (
+          <span className={`text-sm ${isReposted ? 'text-[rgb(0,186,124)]' : 'text-text-secondary'}`}>
+            {formatCount(repostsCount)}
+          </span>
+        )}
       </button>
 
       <button

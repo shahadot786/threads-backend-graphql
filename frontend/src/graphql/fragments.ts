@@ -49,12 +49,19 @@ export const POST_FRAGMENT = gql`
     visibility
     repliesCount
     likesCount
+    repostsCount
     isLiked
     isBookmarked
+    isReposted
     createdAt
     updatedAt
     author {
       ...UserBasicFields
+    }
+    repostedBy {
+      id
+      username
+      profileImageUrl
     }
     media {
       id
