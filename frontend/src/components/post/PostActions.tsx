@@ -53,7 +53,7 @@ const BookmarkIcon = ({ filled }: { filled: boolean }) => (
 
 export function PostActions({ post, onUpdate }: PostActionsProps) {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const openLoginModal = useUIStore(state => state.openLoginModal);
+  const { openLoginModal, openReplyModal, showToast } = useUIStore();
 
   const [isLiked, setIsLiked] = useState(post.isLiked);
   const [likesCount, setLikesCount] = useState(post.likesCount);
@@ -66,6 +66,7 @@ export function PostActions({ post, onUpdate }: PostActionsProps) {
 
   const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     if (!isAuthenticated) {
       openLoginModal();
       return;
@@ -88,14 +89,77 @@ export function PostActions({ post, onUpdate }: PostActionsProps) {
     }
   };
 
-  const handleBookmark = async (e: React.MouseEvent) => {
+  const handleComment = (e: React.MouseEvent) => {
     e.preventDefault();
-    // Bookmarking might not be a primary action on the feed card in some versions, but included if requested.
+    e.stopPropagation();
     if (!isAuthenticated) {
       openLoginModal();
       return;
     }
-    // ... impl
+    openReplyModal(post);
+  };
+
+  const handleRepost = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      openLoginModal();
+      return;
+    }
+    // Repost functionality coming soon
+    showToast("Repost coming soon!");
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const postUrl = `${window.location.origin}/post/${post.id}`;
+
+    // Try native share API first (mobile)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Post by @${post.author.username}`,
+          text: post.content || "",
+          url: postUrl,
+        });
+        return;
+      } catch (err) {
+        // User cancelled or share failed, fall back to clipboard
+      }
+    }
+
+    // Fall back to clipboard copy
+    try {
+      await navigator.clipboard.writeText(postUrl);
+      showToast("Link copied to clipboard!");
+    } catch {
+      showToast("Failed to copy link");
+    }
+  };
+
+  const handleBookmark = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isAuthenticated) {
+      openLoginModal();
+      return;
+    }
+
+    try {
+      if (isBookmarked) {
+        setIsBookmarked(false);
+        await unbookmarkPost({ variables: { postId: post.id } });
+        showToast("Removed from bookmarks");
+      } else {
+        setIsBookmarked(true);
+        await bookmarkPost({ variables: { postId: post.id } });
+        showToast("Added to bookmarks");
+      }
+    } catch {
+      setIsBookmarked(!isBookmarked);
+    }
   };
 
   return (
@@ -114,7 +178,10 @@ export function PostActions({ post, onUpdate }: PostActionsProps) {
         )}
       </button>
 
-      <button className="group flex items-center gap-1.5 p-2 rounded-full hover:bg-hover transition-colors text-icon hover:text-icon-active">
+      <button
+        onClick={handleComment}
+        className="group flex items-center gap-1.5 p-2 rounded-full hover:bg-hover transition-colors text-icon hover:text-icon-active"
+      >
         <div className="transition-transform duration-200 group-active:scale-90">
           <CommentIcon />
         </div>
@@ -123,13 +190,19 @@ export function PostActions({ post, onUpdate }: PostActionsProps) {
         )}
       </button>
 
-      <button className="group p-2 rounded-full hover:bg-hover transition-colors text-icon hover:text-icon-active">
+      <button
+        onClick={handleRepost}
+        className="group p-2 rounded-full hover:bg-hover transition-colors text-icon hover:text-icon-active"
+      >
         <div className="transition-transform duration-200 group-active:scale-90">
           <RepostIcon />
         </div>
       </button>
 
-      <button className="group p-2 rounded-full hover:bg-hover transition-colors text-icon hover:text-icon-active">
+      <button
+        onClick={handleShare}
+        className="group p-2 rounded-full hover:bg-hover transition-colors text-icon hover:text-icon-active"
+      >
         <div className="transition-transform duration-200 group-active:scale-90">
           <ShareIcon />
         </div>
