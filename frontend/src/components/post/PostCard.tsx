@@ -5,9 +5,10 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/Avatar";
 import { PostActions } from "./PostActions";
+import { PostOptionsMenu } from "./PostOptionsMenu";
 import { formatRelativeTime } from "@/lib/utils";
 import type { Post } from "@/types";
-import { MoreHorizontal, Repeat2 } from "lucide-react";
+import { Repeat2 } from "lucide-react";
 
 interface PostCardProps {
   post: Post;
@@ -104,9 +105,7 @@ export function PostCard({ post, showThread = false }: PostCardProps) {
             </div>
 
             {/* More options button */}
-            <button className="p-2 -mr-2 -mt-1 rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition-all active:scale-95">
-              <MoreHorizontal size={20} />
-            </button>
+            <PostOptionsMenu post={post} />
           </div>
 
           {/* Content text */}
