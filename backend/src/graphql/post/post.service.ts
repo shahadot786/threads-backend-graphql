@@ -482,6 +482,50 @@ export const postService = {
   },
 
   // =====================
+  // GET PUBLIC FEED (public posts, sorted by createdAt for guests)
+  // =====================
+  async getPublicFeed(pagination: PaginationInput = {}) {
+    const { first = 20, after } = pagination;
+
+    const whereClause: Prisma.PostWhereInput = {
+      parentPostId: null, // Only top-level posts
+      visibility: "PUBLIC",
+    };
+
+    if (after) {
+      const { createdAt, id } = decodeCursor(after);
+      whereClause.OR = [
+        { createdAt: { lt: createdAt } },
+        { createdAt, id: { lt: id } },
+      ];
+    }
+
+    const posts = await prisma.post.findMany({
+      where: whereClause,
+      take: first + 1,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      include: {
+        author: true,
+        media: { orderBy: { position: "asc" } },
+      },
+    });
+
+    const hasNextPage = posts.length > first;
+    const edges = posts.slice(0, first).map((post) => ({
+      cursor: encodeCursor(post.createdAt, post.id),
+      node: post,
+    }));
+
+    return {
+      edges,
+      pageInfo: {
+        hasNextPage,
+        endCursor: getEndCursor(edges),
+      },
+    };
+  },
+
+  // =====================
   // GET TRENDING POSTS (public posts, sorted by engagement)
   // =====================
   async getTrendingPosts(pagination: PaginationInput = {}) {
@@ -518,16 +562,26 @@ export const postService = {
     });
 
     // Sort by engagement (likes + replies), fallback to recency
+    // Primary: engagement score (higher first)
+    // Secondary: createdAt (newer first - higher timestamp first)
+    // Tertiary: id (for consistent ordering)
     posts.sort((a, b) => {
       const scoreA = (a._count?.likes || 0) + (a._count?.replies || 0);
       const scoreB = (b._count?.likes || 0) + (b._count?.replies || 0);
 
+      // Sort by engagement score (higher first)
       if (scoreB !== scoreA) {
         return scoreB - scoreA;
       }
 
-      // If scores are equal, sort by createdAt desc
-      return b.createdAt.getTime() - a.createdAt.getTime();
+      // If scores are equal, sort by createdAt DESC (newer posts first)
+      const timeDiff = b.createdAt.getTime() - a.createdAt.getTime();
+      if (timeDiff !== 0) {
+        return timeDiff;
+      }
+
+      // Tertiary sort by id for consistent ordering
+      return b.id.localeCompare(a.id);
     });
 
     const hasNextPage = posts.length > first;

@@ -141,6 +141,17 @@ export const postResolvers = {
       });
     },
 
+    // Get public feed (PUBLIC - chronological order for guests)
+    getPublicFeed: async (
+      _: unknown,
+      args: { first?: number; after?: string }
+    ) => {
+      return postService.getPublicFeed({
+        first: args.first ?? 20,
+        after: args.after,
+      });
+    },
+
     // Get posts by hashtag (PUBLIC - guests can view)
     getPostsByHashtag: async (
       _: unknown,

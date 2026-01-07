@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/Header";
 import { PostCard } from "@/components/post/PostCard";
 import { PostSkeleton } from "@/components/ui/Loading";
 import { useAuthStore } from "@/stores/auth";
-import { GET_TRENDING_POSTS, GET_HOME_FEED } from "@/graphql/queries/post";
+import { GET_PUBLIC_FEED, GET_HOME_FEED } from "@/graphql/queries/post";
 import type { PostConnection } from "@/types";
 
 interface TrendingPostsData {
@@ -17,8 +17,9 @@ export default function HomePage() {
   const isAuthenticated = useAuthStore((state: any) => state.isAuthenticated);
   const isLoading = useAuthStore((state: any) => state.isLoading);
 
-  const query = isAuthenticated ? GET_HOME_FEED : GET_TRENDING_POSTS;
-  const queryField = isAuthenticated ? "getHomeFeed" : "getTrendingPosts";
+  // Use getHomeFeed for authenticated users, getPublicFeed (chronological) for guests
+  const query = isAuthenticated ? GET_HOME_FEED : GET_PUBLIC_FEED;
+  const queryField = isAuthenticated ? "getHomeFeed" : "getPublicFeed";
 
   const {
     data,

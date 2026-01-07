@@ -153,6 +153,22 @@ export const apolloClient = new ApolloClient({
               };
             },
           },
+          getPublicFeed: {
+            keyArgs: false,
+            merge(existing, incoming, { args }) {
+              if (!existing || !args?.after) return incoming;
+              const existingCursors = new Set(
+                existing.edges.map((e: { cursor: string }) => e.cursor)
+              );
+              const newEdges = incoming.edges.filter(
+                (e: { cursor: string }) => !existingCursors.has(e.cursor)
+              );
+              return {
+                ...incoming,
+                edges: [...existing.edges, ...newEdges],
+              };
+            },
+          },
           getUserPosts: {
             keyArgs: ["userId"],
             merge(existing, incoming, { args }) {

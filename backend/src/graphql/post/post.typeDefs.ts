@@ -137,6 +137,9 @@ export const postTypeDefs = /* GraphQL */ `
     # Explore / trending (PUBLIC - guests can view)
     getTrendingPosts(first: Int = 20, after: String): PostConnection!
 
+    # Public feed (PUBLIC - chronological order for guests)
+    getPublicFeed(first: Int = 20, after: String): PostConnection!
+
     # Hashtag search (PUBLIC - guests can view)
     getPostsByHashtag(tag: String!, first: Int = 20, after: String): PostConnection!
 
