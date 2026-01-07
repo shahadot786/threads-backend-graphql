@@ -14,7 +14,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Settings } from "lucide-react";
 import { useAuthStore } from "@/stores/auth";
@@ -43,7 +43,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const decodedUsername = decodeURIComponent(rawUsername);
   const username = decodedUsername.replace(/^@+/, "");
 
-  const currentUser = useAuthStore(state => state.user);
+  const currentUser = useAuthStore((state) => state.user);
   const isOwnProfile = currentUser?.username === username;
 
   const { data: userData, loading: userLoading } = useQuery<UserData>(
@@ -88,9 +88,16 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     return (
       <MainLayout showAuthCard={false}>
         <div className="py-16 text-center">
-          <h2 className="text-xl font-bold text-foreground mb-2">User not found</h2>
-          <p className="text-muted-foreground">@{username} doesn&apos;t exist</p>
-          <Link href="/" className="mt-4 inline-block text-primary hover:underline">
+          <h2 className="text-xl font-bold text-foreground mb-2">
+            User not found
+          </h2>
+          <p className="text-muted-foreground">
+            @{username} doesn&apos;t exist
+          </p>
+          <Link
+            href="/"
+            className="mt-4 inline-block text-primary hover:underline"
+          >
             Go home
           </Link>
         </div>
@@ -112,24 +119,34 @@ export default function ProfilePage({ params }: ProfilePageProps) {
           <Avatar className="w-20 h-20 border border-border/50">
             <AvatarImage src={user.profileImageUrl || ""} alt={user.username} />
             <AvatarFallback className="bg-muted text-muted-foreground text-xl">
-              {user.firstName[0]}{user.lastName?.[0]}
+              {user.firstName[0]}
+              {user.lastName?.[0]}
             </AvatarFallback>
           </Avatar>
         </div>
 
         {/* Bio */}
         {user.bio && (
-          <p className="text-foreground mt-4 whitespace-pre-wrap leading-relaxed">{user.bio}</p>
+          <p className="text-foreground mt-4 whitespace-pre-wrap leading-relaxed">
+            {user.bio}
+          </p>
         )}
 
         {/* Stats */}
         <div className="flex items-center gap-4 text-muted-foreground mt-4 mb-6">
-          <span className="hover:text-foreground cursor-pointer transition-colors">{formatCount(user.stats?.followersCount || 0)} followers</span>
+          <span className="hover:text-foreground cursor-pointer transition-colors">
+            {formatCount(user.stats?.followersCount || 0)} followers
+          </span>
           {user.website && (
             <>
               <span>·</span>
-              <a href={user.website} target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
-                {user.website.replace(/^https?:\/\//, '')}
+              <a
+                href={user.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-foreground transition-colors"
+              >
+                {user.website.replace(/^https?:\/\//, "")}
               </a>
             </>
           )}
@@ -139,18 +156,27 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         <div className="flex gap-2">
           {isOwnProfile ? (
             <>
-              <Button variant="outline" className="flex-1 rounded-xl h-9 font-bold">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl h-9 font-bold"
+              >
                 Edit profile
               </Button>
               <Dialog>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="icon" className="md:hidden rounded-xl h-9 w-9 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="md:hidden rounded-xl h-9 w-9 shrink-0"
+                  >
                     <Settings size={18} />
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-[400px] p-0 overflow-hidden rounded-2xl border-border bg-card">
+                <DialogContent className="max-w-100 p-0 overflow-hidden rounded-2xl border-border bg-card">
                   <DialogHeader className="p-4 border-b border-border">
-                    <DialogTitle className="text-center text-base font-bold">Settings</DialogTitle>
+                    <DialogTitle className="text-center text-base font-bold">
+                      Settings
+                    </DialogTitle>
                   </DialogHeader>
                   <div className="p-2">
                     <SettingsMenu variant="popover" />
@@ -163,7 +189,10 @@ export default function ProfilePage({ params }: ProfilePageProps) {
               <Button className="flex-1 rounded-xl h-9 font-bold bg-foreground text-background">
                 Follow
               </Button>
-              <Button variant="outline" className="flex-1 rounded-xl h-9 font-bold">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-xl h-9 font-bold"
+              >
                 Mention
               </Button>
             </>
@@ -197,9 +226,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
             <p className="text-muted-foreground text-[15px]">No threads yet</p>
           </div>
         ) : (
-          posts.map(({ node: post }) => (
-            <PostCard key={post.id} post={post} />
-          ))
+          posts.map(({ node: post }) => <PostCard key={post.id} post={post} />)
         )}
       </div>
     </MainLayout>

@@ -5,7 +5,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { PostCard } from "@/components/post/PostCard";
 import { PostSkeleton } from "@/components/ui/Loading";
-import { useAuthStore } from "@/stores/auth";
+// import { useAuthStore } from "@/stores/auth";
 import { GET_TRENDING_POSTS } from "@/graphql/queries/post";
 import type { PostConnection } from "@/types";
 
@@ -14,16 +14,17 @@ interface TrendingPostsData {
 }
 
 export default function HomePage() {
-  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const isLoading = useAuthStore(state => state.isLoading);
+  // const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  // const isLoading = useAuthStore(state => state.isLoading);
 
-  const { data, loading: postsLoading, fetchMore } = useQuery<TrendingPostsData>(
-    GET_TRENDING_POSTS,
-    {
-      variables: { first: 20 },
-      notifyOnNetworkStatusChange: true,
-    }
-  );
+  const {
+    data,
+    loading: postsLoading,
+    fetchMore,
+  } = useQuery<TrendingPostsData>(GET_TRENDING_POSTS, {
+    variables: { first: 20 },
+    notifyOnNetworkStatusChange: true,
+  });
 
   const posts = data?.getTrendingPosts?.edges || [];
   const pageInfo = data?.getTrendingPosts?.pageInfo;
@@ -42,7 +43,6 @@ export default function HomePage() {
     <MainLayout>
       <Header title="Home" />
 
-
       {/* Posts Feed */}
       <div className="pb-20 md:pb-4">
         {postsLoading && posts.length === 0 ? (
@@ -56,7 +56,9 @@ export default function HomePage() {
         ) : posts.length === 0 ? (
           // Empty state
           <div className="py-16 text-center">
-            <p className="text-muted-foreground">No posts yet. Be the first to share!</p>
+            <p className="text-muted-foreground">
+              No posts yet. Be the first to share!
+            </p>
           </div>
         ) : (
           // Posts list
