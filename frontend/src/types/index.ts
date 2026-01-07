@@ -14,6 +14,7 @@ export interface User {
   stats?: UserStats | null;
   createdAt: string;
   updatedAt: string;
+  isFollowing?: boolean | null;
 }
 
 export interface UserStats {

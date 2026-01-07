@@ -23,6 +23,7 @@ export function SettingsMenu({
 }: SettingsMenuProps) {
   const { theme, setTheme } = useTheme();
   const logout = useAuthStore((state) => state.logout);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const router = useRouter();
   const [logoutMutation] = useMutation(LOGOUT_MUTATION);
 
@@ -67,13 +68,12 @@ export function SettingsMenu({
         if (onClose) onClose();
       },
     },
-    {
+    ...(isAuthenticated ? [{
       label: "Log out",
       icon: LogOut,
       onClick: handleLogout,
-      className:
-        "text-destructive hover:text-destructive hover:bg-destructive/10",
-    },
+      className: "text-destructive hover:text-destructive hover:bg-destructive/10",
+    }] : []),
   ];
 
   if (variant === "inline") {

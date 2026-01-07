@@ -19,6 +19,15 @@ export const userResolvers = {
     stats: async (parent: { id: string }) => {
       return userService.getUserStats(parent.id);
     },
+    isFollowing: async (
+      parent: { id: string },
+      _: unknown,
+      context: GraphQLContext
+    ) => {
+      if (!context.user) return false;
+      if (context.user.id === parent.id) return false;
+      return userService.isFollowing(context.user.id, parent.id);
+    },
   },
 
   Query: {

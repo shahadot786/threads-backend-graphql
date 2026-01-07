@@ -172,7 +172,7 @@ function renderContent(content: string): React.ReactNode {
       return (
         <Link
           key={index}
-          href={`/hashtag/${tag}`}
+          href={`/tags/${tag}`}
           className="text-primary hover:underline font-medium"
         >
           {part}

@@ -10,6 +10,7 @@ interface AuthState {
   
   // Actions
   setUser: (user: User | null) => void;
+  updateUser: (user: User) => void;
   setLoading: (loading: boolean) => void;
   setRefreshing: (refreshing: boolean) => void;
   setError: (error: string | null) => void;
@@ -30,6 +31,8 @@ export const useAuthStore = create<AuthState>()((set) => ({
     isAuthenticated: !!user,
     isLoading: false 
   }),
+
+  updateUser: (user) => set({ user }),
   
   setLoading: (isLoading) => set({ isLoading }),
   

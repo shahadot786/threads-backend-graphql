@@ -20,6 +20,7 @@ export const userTypeDefs = /* GraphQL */ `
     stats: UserStats
     createdAt: String!
     updatedAt: String!
+    isFollowing: Boolean!
   }
 
   type UserStats {

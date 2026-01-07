@@ -24,6 +24,7 @@ export const USER_FRAGMENT = gql`
     }
     createdAt
     updatedAt
+    isFollowing
   }
 `;
 

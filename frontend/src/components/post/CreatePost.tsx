@@ -22,7 +22,8 @@ interface CreatePostProps {
 export function CreatePost({ onSuccess }: CreatePostProps) {
   const user = useAuthStore(state => state.user);
   const closeCreatePost = useUIStore(state => state.closeCreatePost);
-  const [content, setContent] = useState("");
+  const createPostContent = useUIStore(state => state.createPostContent);
+  const [content, setContent] = useState(createPostContent);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

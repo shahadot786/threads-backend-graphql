@@ -9,7 +9,9 @@ interface AlertModal {
 interface UIState {
   // Modals
   isCreatePostOpen: boolean;
+  createPostContent: string;
   isLoginModalOpen: boolean;
+  isEditProfileOpen: boolean;
   isReplyModalOpen: boolean;
   replyToPost: Post | null;
   isAlertModalOpen: boolean;
@@ -22,13 +24,16 @@ interface UIState {
   isSidebarCollapsed: boolean;
   
   // Actions
-  openCreatePost: () => void;
+  openCreatePost: (initialContent?: string) => void;
   closeCreatePost: () => void;
   toggleCreatePost: () => void;
   
   openLoginModal: () => void;
   closeLoginModal: () => void;
   
+  openEditProfileModal: () => void;
+  closeEditProfileModal: () => void;
+
   openReplyModal: (post: Post) => void;
   closeReplyModal: () => void;
   
@@ -43,7 +48,9 @@ interface UIState {
 
 export const useUIStore = create<UIState>()((set) => ({
   isCreatePostOpen: false,
+  createPostContent: "",
   isLoginModalOpen: false,
+  isEditProfileOpen: false,
   isReplyModalOpen: false,
   replyToPost: null,
   isAlertModalOpen: false,
@@ -51,12 +58,18 @@ export const useUIStore = create<UIState>()((set) => ({
   toastMessage: null,
   isSidebarCollapsed: false,
   
-  openCreatePost: () => set({ isCreatePostOpen: true }),
-  closeCreatePost: () => set({ isCreatePostOpen: false }),
+  openCreatePost: (initialContent) => set({ 
+    isCreatePostOpen: true, 
+    createPostContent: initialContent || "" 
+  }),
+  closeCreatePost: () => set({ isCreatePostOpen: false, createPostContent: "" }),
   toggleCreatePost: () => set((state) => ({ isCreatePostOpen: !state.isCreatePostOpen })),
   
   openLoginModal: () => set({ isLoginModalOpen: true }),
   closeLoginModal: () => set({ isLoginModalOpen: false }),
+  
+  openEditProfileModal: () => set({ isEditProfileOpen: true }),
+  closeEditProfileModal: () => set({ isEditProfileOpen: false }),
   
   openReplyModal: (post: Post) => set({ isReplyModalOpen: true, replyToPost: post }),
   closeReplyModal: () => set({ isReplyModalOpen: false, replyToPost: null }),

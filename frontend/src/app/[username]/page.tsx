@@ -1,7 +1,9 @@
 "use client";
 
-import { use } from "react";
-import { useQuery } from "@apollo/client/react";
+import { use, useState, useEffect } from "react";
+import { useQuery, useMutation } from "@apollo/client/react";
+import { FOLLOW_USER_MUTATION, UNFOLLOW_USER_MUTATION } from "@/graphql/mutations/auth";
+import { useUIStore } from "@/stores/ui";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -44,7 +46,10 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const username = decodedUsername.replace(/^@+/, "");
 
   const currentUser = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const isOwnProfile = currentUser?.username === username;
+
+  const { openLoginModal, showToast, openEditProfileModal, openCreatePost } = useUIStore();
 
   const { data: userData, loading: userLoading } = useQuery<UserData>(
     GET_USER_BY_USERNAME,
@@ -62,6 +67,48 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   );
 
   const posts = postsData?.getUserPosts?.edges || [];
+
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+
+  useEffect(() => {
+    if (user) {
+      setIsFollowing(user.isFollowing || false);
+      setFollowersCount(user.stats?.followersCount || 0);
+    }
+  }, [user]);
+
+  const [followUser, { loading: followLoading }] = useMutation(FOLLOW_USER_MUTATION);
+  const [unfollowUser, { loading: unfollowLoading }] = useMutation(UNFOLLOW_USER_MUTATION);
+
+  const handleFollowToggle = async () => {
+    if (!user) return;
+
+    if (!isAuthenticated) {
+      openLoginModal();
+      return;
+    }
+
+    const previousIsFollowing = isFollowing;
+    const previousFollowersCount = followersCount;
+
+    // Optimistic update
+    setIsFollowing(!isFollowing);
+    setFollowersCount(isFollowing ? followersCount - 1 : followersCount + 1);
+
+    try {
+      if (isFollowing) {
+        await unfollowUser({ variables: { userId: user.id } });
+      } else {
+        await followUser({ variables: { userId: user.id } });
+      }
+    } catch (error) {
+      // Revert on error
+      setIsFollowing(previousIsFollowing);
+      setFollowersCount(previousFollowersCount);
+      showToast("Failed to update follow status");
+    }
+  };
 
   if (userLoading) {
     return (
@@ -135,7 +182,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         {/* Stats */}
         <div className="flex items-center gap-4 text-muted-foreground mt-4 mb-6">
           <span className="hover:text-foreground cursor-pointer transition-colors">
-            {formatCount(user.stats?.followersCount || 0)} followers
+            {formatCount(followersCount)} followers
           </span>
           {user.website && (
             <>
@@ -159,6 +206,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
               <Button
                 variant="outline"
                 className="flex-1 rounded-xl h-9 font-bold"
+                onClick={openEditProfileModal}
               >
                 Edit profile
               </Button>
@@ -186,12 +234,26 @@ export default function ProfilePage({ params }: ProfilePageProps) {
             </>
           ) : (
             <>
-              <Button className="flex-1 rounded-xl h-9 font-bold bg-foreground text-background">
-                Follow
+              <Button
+                onClick={handleFollowToggle}
+                disabled={followLoading || unfollowLoading}
+                className={`flex-1 rounded-xl h-9 font-bold transition-colors ${isFollowing
+                  ? "bg-transparent border border-border text-foreground hover:bg-secondary/50"
+                  : "bg-foreground text-background hover:opacity-90"
+                  }`}
+              >
+                {isFollowing ? "Following" : "Follow"}
               </Button>
               <Button
                 variant="outline"
                 className="flex-1 rounded-xl h-9 font-bold"
+                onClick={() => {
+                  if (!isAuthenticated) {
+                    openLoginModal();
+                    return;
+                  }
+                  openCreatePost(`@${user.username} `);
+                }}
               >
                 Mention
               </Button>

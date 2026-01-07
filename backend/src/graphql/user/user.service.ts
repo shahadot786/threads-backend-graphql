@@ -247,6 +247,19 @@ export const userService = {
     return true;
   },
 
+  // Check if user follows target user
+  async isFollowing(followerId: string, followingId: string) {
+    const follow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId,
+        },
+      },
+    });
+    return !!follow;
+  },
+
   // Get followers of a user
   async getFollowers(userId: string) {
     const follows = await prisma.follow.findMany({
