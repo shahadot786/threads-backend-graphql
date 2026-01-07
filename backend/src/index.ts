@@ -36,16 +36,16 @@ async function startServer() {
     },
   });
 
-  const upload = multer({ 
+  const upload = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit (max for video)
     fileFilter: (req, file, cb) => {
-      if (file.mimetype.startsWith("image/")) {
+      if (file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/")) {
         cb(null, true);
       } else {
-        cb(new Error("Only images are allowed"));
+        cb(new Error("Only images and videos are allowed"));
       }
-    }
+    },
   });
 
   // Serve static files from uploads directory
@@ -64,17 +64,40 @@ async function startServer() {
   );
 
   // File Upload Endpoint
-  app.post("/api/upload", upload.single("file"), (req, res) => {
+  app.post("/api/upload", upload.array("files", 10), (req, res) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
+      if (!req.files || (Array.isArray(req.files) && req.files.length === 0)) {
+        return res.status(400).json({ error: "No files uploaded" });
+      }
+
+      const fileUrls: string[] = [];
+      const files = req.files as Express.Multer.File[];
+
+      // Validate individual file sizes
+      for (const file of files) {
+        if (file.mimetype.startsWith("image/") && file.size > 2 * 1024 * 1024) {
+           return res.status(400).json({ error: `Image ${file.originalname} exceeds 2MB limit` });
+        }
+        if (file.mimetype.startsWith("video/") && file.size > 10 * 1024 * 1024) {
+           return res.status(400).json({ error: `Video ${file.originalname} exceeds 10MB limit` });
+        }
+        
+        const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${file.filename}`;
+        fileUrls.push(fileUrl);
       }
       
-      const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
-      res.json({ url: fileUrl });
-    } catch (error) {
+      // Return single url if single file uploaded (for backward compatibility if needed) 
+      // or standard format { urls: [] } or { url: ... } is tricky if client expects 1.
+      // Current client ReportProblem uses .url. CreatePost will use .urls or .url
+      
+      if (files.length === 1 && files[0]) {
+         return res.json({ url: fileUrls[0], urls: fileUrls, type: files[0].mimetype });
+      }
+
+      res.json({ urls: fileUrls });
+    } catch (error: any) {
       console.error("Upload error:", error);
-      res.status(500).json({ error: "Failed to upload file" });
+      res.status(500).json({ error: error.message || "Failed to upload file" });
     }
   });
 

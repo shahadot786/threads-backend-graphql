@@ -117,17 +117,12 @@ export function Sidebar() {
             isActive={pathname === "/search"}
           />
 
-          <button
-            onClick={handleCreateClick}
-            className="group flex items-center justify-center p-3 rounded-xl transition-all duration-300 text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
-            aria-label="Create Post"
-          >
-            <PlusSquare
-              size={26}
-              strokeWidth={2}
-              className="transition-transform duration-300 group-active:scale-90"
-            />
-          </button>
+          <NavItem
+            href="/create"
+            icon={PlusSquare}
+            isActive={pathname === "/create"}
+            requiresAuth
+          />
 
           <NavItem
             href="/activity"
@@ -185,12 +180,12 @@ export function Sidebar() {
           isActive={pathname === "/search"}
         />
 
-        <button
-          onClick={handleCreateClick}
-          className="p-3 text-muted-foreground hover:text-foreground transition-colors active:scale-90"
-        >
-          <PlusSquare size={26} />
-        </button>
+        <NavItem
+          href="/create"
+          icon={PlusSquare}
+          isActive={pathname === "/create"}
+          requiresAuth
+        />
 
         <NavItem
           href="/activity"
