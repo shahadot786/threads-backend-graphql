@@ -485,6 +485,47 @@ export const postService = {
       where: { followerId: _userId },
       select: { followingId: true },
     });
+
+    // If user follows no one, return top posts
+    if (following.length === 0) {
+      const topPosts = await prisma.post.findMany({
+        where: {
+          visibility: "PUBLIC",
+          parentPostId: null,
+          // Last 7 days to keep it fresh
+          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        },
+        include: {
+          author: true,
+          media: { orderBy: { position: "asc" } },
+          _count: { select: { likes: true, replies: true, reposts: true } },
+        },
+        take: 100, // Fetch a pool to sort
+      });
+
+      // Calculate score and sort: (likes * 2) + replies + reposts
+      topPosts.sort((a, b) => {
+        const scoreA = (a._count.likes * 2) + a._count.replies + a._count.reposts;
+        const scoreB = (b._count.likes * 2) + b._count.replies + b._count.reposts;
+        return scoreB - scoreA;
+      });
+
+      const pagedPosts = topPosts.slice(0, first + 1);
+      const hasNextPage = pagedPosts.length > first;
+      const edges = pagedPosts.slice(0, first).map((post) => ({
+        cursor: encodeCursor(post.createdAt, post.id),
+        node: post,
+      }));
+
+      return {
+        edges,
+        pageInfo: {
+          hasNextPage,
+          endCursor: getEndCursor(edges),
+        },
+      };
+    }
+
     const followingIds = following.map(f => f.followingId);
     followingIds.push(_userId); // Include own posts
 
