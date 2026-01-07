@@ -2,6 +2,7 @@ import { randomBytes, createHmac } from "crypto";
 import { prisma } from "../../lib/prisma.js";
 import JWT from "jsonwebtoken";
 import { Errors } from "../errors.js";
+import type { User } from "../../../generated/prisma/client.js";
 
 export interface CreateUserData {
   firstName: string;
@@ -20,6 +21,7 @@ export interface LoginPayload {
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
+  user: User;
 }
 
 export interface UpdateUserProfileInput {
@@ -426,11 +428,7 @@ export const userService = {
     return {
       accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-      },
+      user,
     };
   },
 
@@ -468,6 +466,7 @@ export const userService = {
     return {
       accessToken,
       refreshToken: newRefreshToken,
+      user: storedToken.user,
     };
   },
 

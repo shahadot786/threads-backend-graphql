@@ -144,14 +144,11 @@ export const userResolvers = {
         throw Errors.unauthenticated("No refresh token provided");
       }
 
-      const { accessToken, refreshToken: newRefreshToken } =
+      const { accessToken, refreshToken: newRefreshToken, user } =
         await userService.refreshAccessToken(refreshTokenValue);
 
       // Set new cookies
       setAuthCookies(context.res, accessToken, newRefreshToken);
-
-      // Get user from new access token
-      const user = context.user;
 
       return {
         accessToken,

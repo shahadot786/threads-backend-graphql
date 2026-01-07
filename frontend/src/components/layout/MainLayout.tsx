@@ -13,6 +13,7 @@ interface MainLayoutProps {
 
 export function MainLayout({ children, showAuthCard = true }: MainLayoutProps) {
   const isAuthenticated = useAuthStore(state => state.isAuthenticated);
+  const isLoading = useAuthStore(state => state.isLoading);
 
   return (
     <div className="min-h-screen bg-background flex justify-center selection:bg-primary selection:text-primary-foreground">
@@ -34,7 +35,7 @@ export function MainLayout({ children, showAuthCard = true }: MainLayoutProps) {
           !showAuthCard && "hidden"
         )}>
           {/* Only render if we want to show it */}
-          {!isAuthenticated && showAuthCard && (
+          {!isAuthenticated && !isLoading && showAuthCard && (
             <div className="sticky top-5 pt-10">
               <AuthCard />
             </div>
