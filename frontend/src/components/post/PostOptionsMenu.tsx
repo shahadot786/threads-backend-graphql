@@ -81,8 +81,7 @@ export function PostOptionsMenu({ post, onDelete, onUpdate }: PostOptionsMenuPro
   const handleEdit = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // For now, show a message - edit modal can be implemented later
-    showToast("Edit feature coming soon!");
+    useUIStore.getState().openEditPostModal(post);
     setIsOpen(false);
   };
 

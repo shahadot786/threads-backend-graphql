@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Sun, Moon, LogOut, AlertCircle, ChevronRight } from "lucide-react";
 import { LOGOUT_MUTATION } from "@/graphql/mutations/auth";
 import { apolloClient } from "@/lib/apollo-client";
+import { useUIStore } from "@/stores/ui";
 
 interface SettingsMenuProps {
   variant?: "popover" | "inline";
@@ -64,7 +65,7 @@ export function SettingsMenu({
       label: "Report a problem",
       icon: AlertCircle,
       onClick: () => {
-        // Implement report logic
+        useUIStore.getState().openReportProblemModal();
         if (onClose) onClose();
       },
     },

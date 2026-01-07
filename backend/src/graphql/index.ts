@@ -4,6 +4,8 @@ import { postTypeDefs } from "./post/post.typeDefs.js";
 import { postResolvers } from "./post/post.resolvers.js";
 import { searchTypeDefs } from "./search/search.typeDefs.js";
 import { searchResolvers } from "./search/search.resolvers.js";
+import { reportTypeDefs } from "./report/report.typeDefs.js";
+import { reportResolvers } from "./report/report.resolvers.js";
 
 // Base types that can be extended
 const baseTypeDefs = /* GraphQL */ `
@@ -17,7 +19,7 @@ const baseTypeDefs = /* GraphQL */ `
 `;
 
 // Merge all typeDefs
-export const typeDefs = [baseTypeDefs, userTypeDefs, postTypeDefs, searchTypeDefs];
+export const typeDefs = [baseTypeDefs, userTypeDefs, postTypeDefs, searchTypeDefs, reportTypeDefs];
 
 // Deep merge resolvers
 function mergeResolvers(...resolverArrays: Record<string, unknown>[]) {
@@ -36,4 +38,4 @@ function mergeResolvers(...resolverArrays: Record<string, unknown>[]) {
 }
 
 // Merge all resolvers
-export const resolvers = mergeResolvers(userResolvers, postResolvers, searchResolvers);
+export const resolvers = mergeResolvers(userResolvers, postResolvers, searchResolvers, reportResolvers);

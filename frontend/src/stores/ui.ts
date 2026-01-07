@@ -44,6 +44,15 @@ interface UIState {
   hideToast: () => void;
   
   toggleSidebar: () => void;
+
+  isReportProblemOpen: boolean;
+  openReportProblemModal: () => void;
+  closeReportProblemModal: () => void;
+
+  isEditPostModalOpen: boolean;
+  editPostData: Post | null;
+  openEditPostModal: (post: Post) => void;
+  closeEditPostModal: () => void;
 }
 
 export const useUIStore = create<UIState>()((set) => ({
@@ -88,4 +97,13 @@ export const useUIStore = create<UIState>()((set) => ({
   hideToast: () => set({ toastMessage: null }),
   
   toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
+
+  isReportProblemOpen: false,
+  openReportProblemModal: () => set({ isReportProblemOpen: true }),
+  closeReportProblemModal: () => set({ isReportProblemOpen: false }),
+
+  isEditPostModalOpen: false,
+  editPostData: null,
+  openEditPostModal: (post) => set({ isEditPostModalOpen: true, editPostData: post }),
+  closeEditPostModal: () => set({ isEditPostModalOpen: false, editPostData: null }),
 }));

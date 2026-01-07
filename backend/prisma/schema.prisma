@@ -78,6 +78,7 @@ model User {
   bookmarks   Bookmark[]
   mentionedIn PostMention[] @relation("mentionedUser")
   reposts     Repost[]
+  reports     Report[]
 
   @@map("users")
 }
@@ -287,4 +288,24 @@ model Repost {
   @@unique([userId, postId])
   @@index([postId])
   @@map("reposts")
+}
+
+// =====================
+// REPORTS
+// =====================
+
+model Report {
+  id            String   @id @default(uuid())
+  category      String
+  description   String   @db.Text
+  attachmentUrl String?  @map("attachment_url")
+  deviceInfo    Json?    @map("device_info")
+  status        String   @default("PENDING") // PENDING, RESOLVED, DISMISSED
+  userId        String?  @map("user_id")
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("reports")
 }
