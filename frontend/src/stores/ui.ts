@@ -57,6 +57,11 @@ interface UIState {
   // Home Refresh Trigger
   homeRefreshTrigger: number;
   triggerHomeRefresh: () => void;
+
+  // Scroll Position Persistence
+  homeScrollPosition: number;
+  setHomeScrollPosition: (position: number) => void;
+  clearHomeScrollPosition: () => void;
 }
 
 export const useUIStore = create<UIState>()((set) => ({
@@ -132,4 +137,9 @@ export const useUIStore = create<UIState>()((set) => ({
 
   homeRefreshTrigger: 0,
   triggerHomeRefresh: () => set((state) => ({ homeRefreshTrigger: state.homeRefreshTrigger + 1 })),
+
+  // Scroll Position Persistence
+  homeScrollPosition: 0,
+  setHomeScrollPosition: (position: number) => set({ homeScrollPosition: position }),
+  clearHomeScrollPosition: () => set({ homeScrollPosition: 0 }),
 }));

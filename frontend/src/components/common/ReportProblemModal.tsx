@@ -30,7 +30,7 @@ interface ReportProblemModalProps {
 
 export function ReportProblemModal({ isOpen, onClose }: ReportProblemModalProps) {
   const { showToast } = useUIStore();
-  const [category, setCategory] = useState("bug");
+  const [category, setCategory] = useState("Bug");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -133,10 +133,10 @@ export function ReportProblemModal({ isOpen, onClose }: ReportProblemModalProps)
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="bug">Bug / Error</SelectItem>
-                <SelectItem value="spam">Spam or Abuse</SelectItem>
-                <SelectItem value="feature">Feature Request</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="Bug">Bug / Error</SelectItem>
+                <SelectItem value="Spam">Spam or Abuse</SelectItem>
+                <SelectItem value="Feature">Feature Request</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
               </SelectContent>
             </Select>
           </div>

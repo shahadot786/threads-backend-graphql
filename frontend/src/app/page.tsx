@@ -4,13 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@apollo/client/react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
-import { PostCard } from "@/components/post/PostCard";
+import { VirtualizedFeed } from "@/components/post/VirtualizedFeed";
 import { PostSkeleton } from "@/components/ui/Loading";
 import { useAuthStore } from "@/stores/auth";
 import { useUIStore } from "@/stores/ui";
 import { GET_PUBLIC_FEED, GET_HOME_FEED } from "@/graphql/queries/post";
 import { useSocketEvent } from "@/hooks/useSocket";
-import { apolloClient } from "@/lib/apollo-client";
+import { updatePostInCache } from "@/lib/apollo-client";
 import type { PostConnection } from "@/types";
 
 interface TrendingPostsData {
@@ -47,12 +47,7 @@ export default function HomePage() {
   // Handle like/unlike events - update cache optimistically
   const handleLikeUpdate = useCallback(
     (data: { postId: string; likesCount: number; userId: string }) => {
-      apolloClient.cache.modify({
-        id: apolloClient.cache.identify({ __typename: "Post", id: data.postId }),
-        fields: {
-          likesCount: () => data.likesCount,
-        },
-      });
+      updatePostInCache(data.postId, { likesCount: data.likesCount });
     },
     []
   );
@@ -74,20 +69,45 @@ export default function HomePage() {
 
   // Home Refresh Trigger Logic
   const homeRefreshTrigger = useUIStore((state) => state.homeRefreshTrigger);
+  const homeScrollPosition = useUIStore((state) => state.homeScrollPosition);
+  const setHomeScrollPosition = useUIStore((state) => state.setHomeScrollPosition);
+  const clearHomeScrollPosition = useUIStore((state) => state.clearHomeScrollPosition);
   const [isHomeRefreshing, setIsHomeRefreshing] = useState(false);
+  const hasRestoredScroll = useRef(false);
 
   useEffect(() => {
     if (homeRefreshTrigger > 0) {
       if (window.scrollY > 0) {
+        // Already scrolled down - just scroll to top
         window.scrollTo({ top: 0, behavior: "smooth" });
       } else {
+        // At top - refresh the feed
         setIsHomeRefreshing(true);
+        clearHomeScrollPosition();
         refetch().finally(() => {
           setTimeout(() => setIsHomeRefreshing(false), 500);
         });
       }
     }
-  }, [homeRefreshTrigger, refetch]);
+  }, [homeRefreshTrigger, refetch, clearHomeScrollPosition]);
+
+  // Save scroll position on unmount
+  useEffect(() => {
+    return () => {
+      setHomeScrollPosition(window.scrollY);
+    };
+  }, [setHomeScrollPosition]);
+
+  // Restore scroll position on mount when cached data is available
+  useEffect(() => {
+    if (!hasRestoredScroll.current && posts.length > 0 && homeScrollPosition > 0) {
+      hasRestoredScroll.current = true;
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: homeScrollPosition, behavior: "instant" });
+      });
+    }
+  }, [posts.length, homeScrollPosition]);
 
   // Pull to Refresh Logic
   const [isPulling, setIsPulling] = useState(false);
@@ -205,42 +225,14 @@ export default function HomePage() {
               <PostSkeleton />
               <PostSkeleton />
             </>
-          ) : posts.length === 0 ? (
-            // Empty state
-            <div className="py-16 text-center">
-              <p className="text-muted-foreground">
-                No posts yet. Be the first to share!
-              </p>
-            </div>
           ) : (
-            // Posts list
-            <>
-              {posts.map(({ node: post }: { node: any }) => (
-                <PostCard key={post.id} post={post} />
-              ))}
-
-              {/* Infinite Scroll Loader */}
-              {pageInfo?.hasNextPage && (
-                <div
-                  ref={(node) => {
-                    if (!node || postsLoading) return;
-                    const observer = new IntersectionObserver(
-                      (entries) => {
-                        if (entries[0].isIntersecting && !postsLoading) {
-                          handleLoadMore();
-                        }
-                      },
-                      { threshold: 0.1, rootMargin: '100px' }
-                    );
-                    observer.observe(node);
-                    return () => observer.disconnect();
-                  }}
-                  className="py-8 flex justify-center"
-                >
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-foreground opacity-50"></div>
-                </div>
-              )}
-            </>
+            <VirtualizedFeed
+              posts={posts}
+              pageInfo={pageInfo}
+              loading={postsLoading}
+              onLoadMore={handleLoadMore}
+              isAuthenticated={isAuthenticated}
+            />
           )}
         </div>
       </div>
