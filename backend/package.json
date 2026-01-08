@@ -4,11 +4,12 @@
   "main": "index.js",
   "license": "MIT",
   "type": "module",
-  "scripts": {
-    "build": "tsc",
-    "start": "npx prisma migrate deploy && node dist/src/index.js",
-    "dev": "tsc-watch --onSuccess \"npm start\""
-  },
+ "scripts": {
+  "build": "tsc",
+  "start": "node dist/src/index.js", 
+  "migrate:prod": "npx prisma migrate deploy",
+  "dev": "tsc-watch --onSuccess \"npm start\""
+},
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
