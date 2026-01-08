@@ -68,9 +68,9 @@ export const GET_MY_NOTIFICATIONS = gql`
       isRead
       createdAt
       actor {
-        ...UserBasicFields
+        ...UserFields
       }
     }
   }
-  ${USER_BASIC_FRAGMENT}
+  ${USER_FRAGMENT}
 `;

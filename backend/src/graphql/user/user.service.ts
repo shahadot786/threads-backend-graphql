@@ -135,6 +135,44 @@ export const userService = {
     return prisma.user.findMany();
   },
 
+  // Get suggested users (ordered by follower count)
+  async getSuggestedUsers(first: number = 10) {
+    // Since we don't have a direct follower count column on user table yet (it's in stats via subquery usually),
+    // we can either return random users or join with follows.
+    // For performance in this MVP, let's just return users with most followers.
+    // However, Prisma sort by relation count is tricky in older versions or requires specific syntax.
+    // A simple approximation is getting users who have posts or just verified users.
+    // Let's try sorting by follower count if possible, or just return keys.
+
+    // A better approach for "Suggested" in MVP without complex analytics:
+    // Return users who strictly have > 0 followers, ordered by creation (newest) or random.
+    // OR: Use prisma's relation count sorting if enabled or supported.
+
+    // Using explicit SQL grouping for best performance, but let's stick to Prisma API for now.
+    // We'll simplisticly fetch users. For a production app, this would be a computed table.
+
+    // Let's fetch users along with their follower count and sort in memory for MVP (assuming low user count), 
+    // OR just limit to 50 and sort.
+    const users = await prisma.user.findMany({
+      take: 50, // Fetch a pool
+      include: {
+        _count: {
+          select: { followers: true }
+        }
+      }
+    });
+
+    // Sort by follower count descending with safety check
+    const sorted = users.sort((a, b) => {
+      const countA = (a as any)._count?.followers ?? 0;
+      const countB = (b as any)._count?.followers ?? 0;
+      return countB - countA;
+    });
+
+    // console.log(`[SuggestedUsers] Found ${users.length} users, returning top ${first}`);
+    return sorted.slice(0, first);
+  },
+
   // Get user by ID
   async getUserById(id: string) {
     return prisma.user.findUnique({ where: { id } });

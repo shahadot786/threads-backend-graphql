@@ -75,6 +75,17 @@ export const userResolvers = {
       return requireAuth(context);
     },
 
+    // Public: Get suggested users (users with most followers)
+    getSuggestedUsers: async (
+      _: unknown,
+      args: { first?: number },
+      _context: GraphQLContext
+    ) => {
+      // In a real app, you'd filter out users the current user is already following
+      // But for public view/simplicity, just returning popular users
+      return userService.getSuggestedUsers(args.first);
+    },
+
     // Protected: Get followers of a user
     getFollowers: async (
       _: unknown,

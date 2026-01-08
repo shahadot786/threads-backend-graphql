@@ -58,9 +58,10 @@ function extractMentions(content: string): string[] {
  */
 function decodeCursor(cursor: string): { createdAt: Date; id: string } {
   const decoded = Buffer.from(cursor, "base64").toString("utf-8");
-  const parts = decoded.split(":");
-  const createdAt = parts[0] ?? "";
-  const id = parts[1] ?? "";
+  // Split by the last colon, as ISO dates contain colons
+  const lastColonIndex = decoded.lastIndexOf(":");
+  const createdAt = decoded.substring(0, lastColonIndex);
+  const id = decoded.substring(lastColonIndex + 1);
   return { createdAt: new Date(createdAt), id };
 }
 

@@ -285,7 +285,11 @@ export default function ProfilePage({ params }: ProfilePageProps) {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border overflow-x-auto no-scrollbar">
+      <div className="flex border-b border-border overflow-x-auto no-scrollbar" style={{
+        scrollbarWidth: 'thin',
+        msOverflowStyle: 'none',
+        WebkitOverflowScrolling: 'touch'
+      }}>
         <button
           onClick={() => setActiveTab('threads')}
           className={`flex-1 min-w-[80px] py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'threads'
@@ -322,10 +326,12 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         >
           Media
         </button>
+
+        {/* Saved tab - only visible on mobile (desktop users use sidebar Pin) */}
         {isOwnProfile && (
           <button
             onClick={() => setActiveTab('bookmarks')}
-            className={`flex-1 min-w-[80px] py-3 text-center font-bold border-b-2 transition-colors ${activeTab === 'bookmarks'
+            className={`flex-1 min-w-[80px] py-3 text-center font-bold border-b-2 transition-colors md:hidden ${activeTab === 'bookmarks'
               ? "text-foreground border-foreground"
               : "text-muted-foreground border-transparent hover:text-foreground"
               }`}
@@ -333,6 +339,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
             Saved
           </button>
         )}
+
         {isOwnProfile && (
           <button
             onClick={() => setActiveTab('blocked')}

@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import type { Notification } from "@/types";
+import { UserTooltip } from "@/components/common/UserTooltip";
 
 interface NotificationsData {
   getMyNotifications: Notification[];
@@ -76,33 +77,52 @@ export default function ActivityPage() {
           </div>
         ) : (
           <div className="divide-y divide-border/10">
-            {notifications.map((notification) => (
-              <Link
-                key={notification.id}
-                href={notification.entityId ? `/post/${notification.entityId}` : `/@${notification.actor.username}`}
-                className={`flex items-start gap-4 px-4 py-4 hover:bg-secondary/20 transition-all ${!notification.isRead ? 'bg-secondary/10' : ''}`}
-              >
-                <Avatar className="w-11 h-11 border border-border/50 translate-y-0.5">
-                  <AvatarImage src={notification.actor.profileImageUrl || ""} alt={notification.actor.username} />
-                  <AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium">
-                    {notification.actor.firstName[0]}{notification.actor.lastName?.[0]}
-                  </AvatarFallback>
-                </Avatar>
+            {notifications.map((notification) => {
+              const mainLinkHref = notification.entityId ? `/post/${notification.entityId}` : `/@${notification.actor.username}`;
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-1.5 flex-wrap">
-                    <span className="font-bold text-foreground text-[15px]">{notification.actor.username}</span>
-                    <span className="text-muted-foreground text-[15px]">{notificationText[notification.type]}</span>
-                    <span className="text-muted-foreground text-[14px] ml-auto md:ml-0">
-                      {formatRelativeTime(notification.createdAt)}
-                    </span>
+              return (
+                <div
+                  key={notification.id}
+                  className={`flex items-start gap-4 px-4 py-4 hover:bg-muted/40 transition-all relative group ${!notification.isRead ? 'bg-primary/5' : ''}`}
+                >
+                  {/* Main clickable area for the row */}
+                  <Link href={mainLinkHref} className="absolute inset-0 z-0" aria-label="View activity" />
+
+                  {/* Avatar with Tooltip - z-10 to sit above main link */}
+                  <div className="z-10 relative">
+                    <UserTooltip user={notification.actor}>
+                      <Link href={`/@${notification.actor.username}`}>
+                        <Avatar className="w-11 h-11 border border-border/50 translate-y-0.5">
+                          <AvatarImage src={notification.actor.profileImageUrl || ""} alt={notification.actor.username} />
+                          <AvatarFallback className="bg-muted text-muted-foreground text-xs font-medium">
+                            {notification.actor.firstName[0]}{notification.actor.lastName?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Link>
+                    </UserTooltip>
                   </div>
+
+                  <div className="flex-1 min-w-0 z-10 relative pointer-events-none">
+                    <div className="flex items-baseline gap-1.5 flex-wrap">
+                      <UserTooltip user={notification.actor}>
+                        <Link href={`/@${notification.actor.username}`} className="font-bold text-foreground text-[15px] hover:underline pointer-events-auto">
+                          {notification.actor.username}
+                        </Link>
+                      </UserTooltip>
+
+                      <span className="text-muted-foreground text-[15px]">{notificationText[notification.type]}</span>
+
+                      <span className="text-muted-foreground text-[14px] ml-auto md:ml-0">
+                        {formatRelativeTime(notification.createdAt)}
+                      </span>
+                    </div>
+                  </div>
+                  {!notification.isRead && (
+                    <div className="w-2.5 h-2.5 rounded-full bg-primary mt-3 shrink-0" />
+                  )}
                 </div>
-                {!notification.isRead && (
-                  <div className="w-2.5 h-2.5 rounded-full bg-primary mt-3 shrink-0" />
-                )}
-              </Link>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

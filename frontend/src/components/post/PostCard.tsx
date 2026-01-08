@@ -11,11 +11,14 @@ import type { Post } from "@/types";
 import { Repeat2, Volume2, VolumeX, Play, Pause } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { MediaLightbox } from "@/components/common/MediaLightbox";
+import { UserTooltip } from "@/components/common/UserTooltip";
 
 interface PostCardProps {
   post: Post;
   showThread?: boolean;
 }
+
+// ... (keep CustomVideoPlayer as is, strictly unmodified)
 
 // Custom Video Component
 const CustomVideoPlayer = ({ src, onClick, shouldPause }: { src: string, onClick: (e: React.MouseEvent) => void, shouldPause: boolean }) => {
@@ -124,21 +127,23 @@ export function PostCard({ post, showThread = false }: PostCardProps) {
         <div className="flex gap-4">
           {/* Left Column: Avatar & Thread Line */}
           <div className="flex flex-col items-center shrink-0 relative">
-            <Link
-              href={`/@${author.username}`}
-              className="z-10 bg-background rounded-full relative"
-            >
-              <Avatar className="w-11 h-11 border border-border/50">
-                <AvatarImage
-                  src={author.profileImageUrl || ""}
-                  alt={author.username}
-                />
-                <AvatarFallback className="bg-muted text-muted-foreground text-xs">
-                  {author.firstName[0]}
-                  {author.lastName?.[0]}
-                </AvatarFallback>
-              </Avatar>
-            </Link>
+            <UserTooltip user={author}>
+              <Link
+                href={`/@${author.username}`}
+                className="z-10 bg-background rounded-full relative"
+              >
+                <Avatar className="w-11 h-11 border border-border/50">
+                  <AvatarImage
+                    src={author.profileImageUrl || ""}
+                    alt={author.username}
+                  />
+                  <AvatarFallback className="bg-muted text-muted-foreground text-xs">
+                    {author.firstName[0]}
+                    {author.lastName?.[0]}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
+            </UserTooltip>
             {/* Thread line */}
             {showThread && (
               <div className="absolute left-1/2 top-12 bottom-0 w-0.5 bg-border/50 -translate-x-1/2 rounded-full" />
@@ -150,12 +155,14 @@ export function PostCard({ post, showThread = false }: PostCardProps) {
             {/* Header */}
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-1.5 overflow-hidden">
-                <Link
-                  href={`/@${author.username}`}
-                  className="font-bold text-foreground hover:underline text-[15px] leading-tight truncate"
-                >
-                  {author.username}
-                </Link>
+                <UserTooltip user={author}>
+                  <Link
+                    href={`/@${author.username}`}
+                    className="font-bold text-foreground hover:underline text-[15px] leading-tight truncate"
+                  >
+                    {author.username}
+                  </Link>
+                </UserTooltip>
                 {author.is_verified && (
                   <svg
                     aria-label="Verified"
@@ -191,10 +198,14 @@ export function PostCard({ post, showThread = false }: PostCardProps) {
 
             {/* Media - Horizontal Scrollable View */}
             {media && media.length > 0 && (
-              <div className="mt-3 media-container">
+              <div className="mt-3 w-full overflow-hidden">
                 <div
-                  className={`flex gap-3 overflow-x-auto snap-x hide-scrollbar pb-2 ${media.length === 1 ? 'overflow-visible' : ''}`}
-                  style={{ maskImage: media.length > 1 ? 'linear-gradient(to right, black 80%, transparent 100%)' : 'none' }}
+                  className={`flex gap-3 overflow-x-auto snap-x pb-2 ${media.length === 1 ? '' : 'scroll-smooth'}`}
+                  style={{
+                    scrollbarWidth: 'auto',
+                    msOverflowStyle: 'none',
+                    WebkitOverflowScrolling: 'touch'
+                  }}
                 >
                   {media.map((item, index) => (
                     <div
@@ -246,28 +257,51 @@ export function PostCard({ post, showThread = false }: PostCardProps) {
 
 // Helper to render content with hashtags and mentions
 function renderContent(content: string): React.ReactNode {
-  const parts = content.split(/(\s+)/);
+  const parts = content.split(/((?:https?:\/\/[^\s]+)|(?:\s+))/);
 
   return parts.map((part, index) => {
+    // URL Detection
+    if (part.match(/^https?:\/\//)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 hover:underline break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      );
+    }
+
+    // Hashtags
     if (part.startsWith("#")) {
       const tag = part.slice(1).replace(/[^\w]/g, "");
+      if (!tag) return part; // Handle standalone '#'
       return (
         <Link
           key={index}
           href={`/tags/${tag}`}
-          className="text-primary hover:underline font-medium"
+          className="text-[rgb(0,186,124)] hover:underline font-normal" // distinct color for tags
+          onClick={(e) => e.stopPropagation()}
         >
           {part}
         </Link>
       );
     }
+
+    // Mentions
     if (part.startsWith("@")) {
       const username = part.slice(1).replace(/[^\w]/g, "");
+      if (!username) return part;
       return (
         <Link
           key={index}
           href={`/@${username}`}
-          className="text-primary hover:underline font-medium"
+          className="text-foreground font-semibold hover:underline" // Mention distinct style
+          onClick={(e) => e.stopPropagation()}
         >
           {part}
         </Link>

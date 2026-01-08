@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client/core";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth";
 import { useUIStore } from "@/stores/ui";
 import { DELETE_POST_MUTATION, UPDATE_POST_MUTATION } from "@/graphql/mutations/post";
@@ -26,6 +27,7 @@ interface PostOptionsMenuProps {
 }
 
 export function PostOptionsMenu({ post, onDelete, onUpdate }: PostOptionsMenuProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [showVisibilitySubmenu, setShowVisibilitySubmenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -78,10 +80,12 @@ export function PostOptionsMenu({ post, onDelete, onUpdate }: PostOptionsMenuPro
     setIsOpen(false);
   };
 
+
   const handleEdit = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    useUIStore.getState().openEditPostModal(post);
+    useUIStore.getState().openCreatePost(post);
+    router.push("/create");
     setIsOpen(false);
   };
 

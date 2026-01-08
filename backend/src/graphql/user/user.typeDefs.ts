@@ -121,6 +121,7 @@ export const userTypeDefs = /* GraphQL */ `
     getUserByUsername(username: String!): User
     getUserByEmail(email: String): User
     getCurrentLoggedInUser: User
+    getSuggestedUsers(first: Int): [User!]!
 
     # Follow queries (PROTECTED)
     getFollowers(userId: ID!): [User!]!

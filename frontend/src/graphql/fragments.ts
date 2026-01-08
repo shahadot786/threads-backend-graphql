@@ -57,7 +57,7 @@ export const POST_FRAGMENT = gql`
     createdAt
     updatedAt
     author {
-      ...UserBasicFields
+      ...UserFields
     }
     repostedBy {
       id
@@ -86,6 +86,7 @@ export const POST_FRAGMENT = gql`
       }
     }
   }
+  ${USER_FRAGMENT}
   ${USER_BASIC_FRAGMENT}
 `;
 

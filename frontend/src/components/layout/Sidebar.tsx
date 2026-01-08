@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { ThreadsLogo } from "@/components/ui/Logo";
 import { Home, Search, PlusSquare, Heart, User, Pin, Menu } from "lucide-react";
 import { SettingsMenu } from "./SettingsMenu";
+import { SavedPostsPanel } from "./SavedPostsPanel";
 
 interface NavItemProps {
   href: string;
@@ -71,6 +72,7 @@ export function Sidebar() {
   const openCreatePost = useUIStore((state) => state.openCreatePost);
   const openLoginModal = useUIStore((state) => state.openLoginModal);
   const [showMenu, setShowMenu] = useState(false);
+  const [showSavedPanel, setShowSavedPanel] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
@@ -110,7 +112,17 @@ export function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 flex flex-col items-center gap-2 w-full px-2">
-          <NavItem href="/" icon={Home} isActive={pathname === "/"} />
+          <NavItem
+            href="/"
+            icon={Home}
+            isActive={pathname === "/"}
+            onClick={(e) => {
+              if (pathname === "/") {
+                e.preventDefault();
+                useUIStore.getState().triggerHomeRefresh();
+              }
+            }}
+          />
           <NavItem
             href="/search"
             icon={Search}
@@ -149,12 +161,15 @@ export function Sidebar() {
             </div>
           )}
 
-          <button
-            className="p-3 rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-300"
-            aria-label="Pinned Threads"
-          >
-            <Pin size={24} />
-          </button>
+          {isAuthenticated && (
+            <button
+              onClick={() => setShowSavedPanel(true)}
+              className="p-3 rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-300"
+              aria-label="Saved Posts"
+            >
+              <Pin size={24} />
+            </button>
+          )}
 
           <button
             onClick={() => setShowMenu(!showMenu)}
@@ -173,7 +188,17 @@ export function Sidebar() {
 
       {/* Mobile Bottom Nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-background/95 backdrop-blur-xl flex items-center justify-around px-4 z-50 border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">
-        <NavItem href="/" icon={Home} isActive={pathname === "/"} />
+        <NavItem
+          href="/"
+          icon={Home}
+          isActive={pathname === "/"}
+          onClick={(e) => {
+            if (pathname === "/") {
+              e.preventDefault();
+              useUIStore.getState().triggerHomeRefresh();
+            }
+          }}
+        />
         <NavItem
           href="/search"
           icon={Search}
@@ -201,6 +226,12 @@ export function Sidebar() {
           requiresAuth
         />
       </nav>
+
+      {/* Saved Posts Panel */}
+      <SavedPostsPanel
+        isOpen={showSavedPanel}
+        onClose={() => setShowSavedPanel(false)}
+      />
     </>
   );
 }

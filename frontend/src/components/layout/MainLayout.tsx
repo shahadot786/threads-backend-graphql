@@ -5,7 +5,7 @@ import { AuthCard } from "./AuthCard";
 import { useAuthStore } from "@/stores/auth";
 import { LoginModal } from "@/components/auth/LoginModal";
 import { EditProfileModal } from "@/components/profile/EditProfileModal";
-import { EditPostModal } from "@/components/post/EditPostModal";
+
 import { ReplyModal } from "@/components/post/ReplyModal";
 import { ReportProblemModal } from "@/components/common/ReportProblemModal";
 import { AlertModal } from "@/components/ui/AlertModal";
@@ -56,7 +56,7 @@ export function MainLayout({ children, showAuthCard = true }: MainLayoutProps) {
       {/* Global Modals */}
       <LoginModal />
       <EditProfileModal />
-      <EditPostModal />
+
       <ReplyModal />
       <ReportProblemModal
         isOpen={useUIStore(state => state.isReportProblemOpen)}
