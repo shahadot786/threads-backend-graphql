@@ -721,34 +721,38 @@ export const postService = {
       select: { followingId: true },
     });
 
+    // Decode cursor if present
+    let cursorDate: Date | undefined;
+    if (after) {
+      const { createdAt } = decodeCursor(after);
+      cursorDate = createdAt;
+    }
+
     // If user follows no one, return top posts (excluding blocked)
     if (following.length === 0) {
+      const whereClause: Prisma.PostWhereInput = {
+        visibility: "PUBLIC",
+        parentPostId: null,
+        authorId: { notIn: blockedIds },
+        // Last 7 days to keep it fresh
+        createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        // Apply cursor filter if present
+        ...(cursorDate && { createdAt: { lt: cursorDate, gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } }),
+      };
+
       const topPosts = await prisma.post.findMany({
-        where: {
-          visibility: "PUBLIC",
-          parentPostId: null,
-          authorId: { notIn: blockedIds }, // Filter blocked
-          // Last 7 days to keep it fresh
-          createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-        },
+        where: whereClause,
         include: {
           author: true,
           media: { orderBy: { position: "asc" } },
           _count: { select: { likes: true, replies: true, reposts: true } },
         },
-        take: 100, // Fetch a pool to sort
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       });
 
-      // Calculate score and sort: (likes * 2) + replies + reposts
-      topPosts.sort((a, b) => {
-        const scoreA = (a._count.likes * 2) + a._count.replies + a._count.reposts;
-        const scoreB = (b._count.likes * 2) + b._count.replies + b._count.reposts;
-        return scoreB - scoreA;
-      });
-
-      const pagedPosts = topPosts.slice(0, first + 1);
-      const hasNextPage = pagedPosts.length > first;
-      const edges = pagedPosts.slice(0, first).map((post) => ({
+      const hasNextPage = topPosts.length > first;
+      const edges = topPosts.slice(0, first).map((post) => ({
         cursor: encodeCursor(post.createdAt, post.id),
         node: post,
       }));
@@ -762,16 +766,8 @@ export const postService = {
       };
     }
 
-
-
     const followingIds = following.map(f => f.followingId).filter(id => !blockedIds.includes(id));
     followingIds.push(_userId); // Include own posts
-
-    let cursorDate: Date | undefined;
-    if (after) {
-      const { createdAt } = decodeCursor(after);
-      cursorDate = createdAt;
-    }
 
     // Fetch original posts
     const postsWhereClause: Prisma.PostWhereInput = {

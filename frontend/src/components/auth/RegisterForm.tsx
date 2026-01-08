@@ -30,10 +30,18 @@ export function RegisterForm({ onSuccess }: { onSuccess?: () => void }) {
     setLoading(true);
 
     try {
-      // 1. SignUp with Supabase
+      // 1. SignUp with Supabase - include redirect URL and user metadata
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?type=signup`,
+          data: {
+            firstName,
+            lastName: lastName || undefined,
+            username: username || undefined,
+          },
+        },
       });
 
       if (authError) throw authError;

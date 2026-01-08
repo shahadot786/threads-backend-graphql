@@ -38,13 +38,19 @@ const authLink = setContext(async (_, { headers }) => {
 
 // Helper merge function for cursor-based pagination
 function paginationMerge(existing: any, incoming: any, { args }: { args: any }) {
-  if (!existing || !args?.after) return incoming;
+  // If no existing data or fresh fetch (no cursor), return incoming
+  if (!existing || !args?.after) {
+    return incoming;
+  }
+
+  // Merge: append new edges, avoiding duplicates
   const existingCursors = new Set(
     existing.edges.map((e: { cursor: string }) => e.cursor)
   );
   const newEdges = incoming.edges.filter(
     (e: { cursor: string }) => !existingCursors.has(e.cursor)
   );
+
   return {
     ...incoming,
     edges: [...existing.edges, ...newEdges],

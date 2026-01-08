@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import Link from "next/link";
 import { PostCard } from "./PostCard";
 import { PostSkeleton } from "@/components/ui/Loading";
@@ -35,7 +35,7 @@ export function VirtualizedFeed({
   const isGuestLimitReached = !isAuthenticated && posts.length >= guestPostLimit;
   const shouldLoadMore = hasNextPage && !isGuestLimitReached;
 
-  // Proper IntersectionObserver with cleanup
+  // IntersectionObserver for infinite scroll
   useEffect(() => {
     // Clean up previous observer
     if (observerRef.current) {

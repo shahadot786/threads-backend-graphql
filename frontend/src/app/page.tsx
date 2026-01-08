@@ -33,6 +33,7 @@ export default function HomePage() {
   } = useQuery<any>(query, {
     variables: { first: 20 },
     notifyOnNetworkStatusChange: true,
+    skip: isLoading, // Don't fetch until auth state is determined
   });
 
   const response = data?.[queryField];
@@ -57,7 +58,7 @@ export default function HomePage() {
   useSocketEvent("post:liked", handleLikeUpdate);
   useSocketEvent("post:unliked", handleLikeUpdate);
 
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     if (!pageInfo?.hasNextPage || postsLoading) return;
 
     fetchMore({
@@ -65,7 +66,7 @@ export default function HomePage() {
         after: pageInfo.endCursor,
       },
     });
-  };
+  }, [pageInfo, postsLoading, fetchMore]);
 
   // Home Refresh Trigger Logic
   const homeRefreshTrigger = useUIStore((state) => state.homeRefreshTrigger);
@@ -217,8 +218,8 @@ export default function HomePage() {
             transition: isPulling ? 'none' : 'transform 0.3s cubic-bezier(0,0,0.2,1)'
           }}
         >
-          {postsLoading && posts.length === 0 ? (
-            // Loading skeletons
+          {(isLoading || postsLoading) && posts.length === 0 ? (
+            // Loading skeletons (shown while auth or posts are loading)
             <>
               <PostSkeleton />
               <PostSkeleton />
