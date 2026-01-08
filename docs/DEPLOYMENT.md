@@ -94,13 +94,18 @@ FRONTEND_URL=https://your-frontend.vercel.app
 
 ### 2.4 Run Database Migrations
 
-After deployment, run migrations via Railway CLI or shell:
+It is recommended to run migrations during the **build phase** in Railway.
 
+Update your **Build Command** in Railway:
+`yarn install && npx prisma generate && npx prisma migrate deploy && yarn build`
+
+Alternatively, you can run them manually via the Railway CLI:
 ```bash
 npx prisma migrate deploy
 ```
 
-Or add to your start script: `"start": "npx prisma migrate deploy && node dist/src/index.js"`
+> [!TIP]
+> Railway automatically redeploys your service whenever you push changes to your linked GitHub branch.
 
 ### 2.5 Get Backend URL
 
@@ -114,7 +119,9 @@ After deployment, copy your Railway URL (e.g., `https://your-app.up.railway.app`
 
 1. Go to [vercel.com](https://vercel.com) and click **Add New → Project**
 2. Import your GitHub repository
-3. Set **Root Directory**: `frontend`
+3. > [!IMPORTANT]
+   > Set **Root Directory**: `frontend`
+   > If you didn't do this during import, go to **Project Settings → General → Root Directory** and set it to `frontend`.
 4. Framework Preset: **Next.js** (auto-detected)
 
 ### 3.2 Add Environment Variables
