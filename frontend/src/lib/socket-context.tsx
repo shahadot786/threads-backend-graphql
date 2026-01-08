@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAuthStore } from "@/stores/auth";
+import { supabase } from "@/lib/supabase";
 
 interface SocketContextType {
     socket: Socket | null;
@@ -28,37 +29,48 @@ export function SocketProvider({ children }: SocketProviderProps) {
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
     useEffect(() => {
-        // Get API URL from env or default
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        let currentSocket: Socket | null = null;
 
-        // Create socket connection
-        const newSocket = io(apiUrl, {
-            path: "/socket.io",
-            withCredentials: true,
-            // Auth token can be added if needed
-            // auth: { token: accessToken },
-        });
+        async function initSocket() {
+            // Get API URL from env or default
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-        newSocket.on("connect", () => {
-            console.log("[Socket] Connected:", newSocket.id);
-            setIsConnected(true);
-        });
+            // Get current session for token
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
 
-        newSocket.on("disconnect", () => {
-            console.log("[Socket] Disconnected");
-            setIsConnected(false);
-        });
+            // Create socket connection
+            currentSocket = io(apiUrl, {
+                path: "/socket.io",
+                withCredentials: true,
+                auth: { token },
+            });
 
-        newSocket.on("connect_error", (error) => {
-            console.error("[Socket] Connection error:", error.message);
-        });
+            currentSocket.on("connect", () => {
+                console.log("[Socket] Connected:", currentSocket?.id);
+                setIsConnected(true);
+            });
 
-        setSocket(newSocket);
+            currentSocket.on("disconnect", () => {
+                console.log("[Socket] Disconnected");
+                setIsConnected(false);
+            });
+
+            currentSocket.on("connect_error", (error) => {
+                console.error("[Socket] Connection error:", error.message);
+            });
+
+            setSocket(currentSocket);
+        }
+
+        initSocket();
 
         return () => {
-            newSocket.disconnect();
+            if (currentSocket) {
+                currentSocket.disconnect();
+            }
         };
-    }, [isAuthenticated]);
+    }, [isAuthenticated]); // Reconnect when authentication status changes
 
     return (
         <SocketContext.Provider value={{ socket, isConnected }}>

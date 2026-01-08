@@ -7,6 +7,7 @@ import { expressMiddleware } from "@as-integrations/express5";
 import { createGraphqlServer } from "./graphql/server.js";
 import { createContext } from "./graphql/context.js";
 import { initializeSocket } from "./lib/socket.js";
+import { uploadToSupabase } from "./lib/supabase.js";
 
 import multer from "multer";
 import path from "path";
@@ -27,37 +28,60 @@ async function startServer() {
   // Initialize Socket.IO
   initializeSocket(httpServer);
 
-  // Ensure uploads directory exists
-  const uploadDir = path.join(__dirname, "../uploads");
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+  // Check if Supabase is configured
+  const useSupabase = !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY);
+
+  // Configure Multer - use memory storage for Supabase, disk for local
+  let upload: multer.Multer;
+  let uploadDir: string | undefined;
+
+  if (useSupabase) {
+    // Memory storage for Supabase uploads
+    upload = multer({
+      storage: multer.memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/")) {
+          cb(null, true);
+        } else {
+          cb(new Error("Only images and videos are allowed"));
+        }
+      },
+    });
+    console.log("📦 Using Supabase Storage for file uploads");
+  } else {
+    // Disk storage for local development
+    uploadDir = path.join(__dirname, "../uploads");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const diskStorage = multer.diskStorage({
+      destination: (req, file, cb) => {
+        cb(null, uploadDir!);
+      },
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+      },
+    });
+
+    upload = multer({
+      storage: diskStorage,
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/")) {
+          cb(null, true);
+        } else {
+          cb(new Error("Only images and videos are allowed"));
+        }
+      },
+    });
+
+    // Serve static files from uploads directory (only for local)
+    app.use("/uploads", express.static(uploadDir));
+    console.log("💾 Using local disk storage for file uploads");
   }
-
-  // Configure Multer
-  const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, uniqueSuffix + path.extname(file.originalname));
-    },
-  });
-
-  const upload = multer({
-    storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit (max for video)
-    fileFilter: (req, file, cb) => {
-      if (file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/")) {
-        cb(null, true);
-      } else {
-        cb(new Error("Only images and videos are allowed"));
-      }
-    },
-  });
-
-  // Serve static files from uploads directory
-  app.use("/uploads", express.static(uploadDir));
 
   // Cookie parser
   app.use(cookieParser());
@@ -72,32 +96,40 @@ async function startServer() {
   );
 
   // File Upload Endpoint
-  app.post("/api/upload", upload.array("files", 10), (req, res) => {
+  app.post("/api/upload", upload.array("files", 10), async (req, res) => {
     try {
       if (!req.files || (Array.isArray(req.files) && req.files.length === 0)) {
         return res.status(400).json({ error: "No files uploaded" });
       }
 
-      const fileUrls: string[] = [];
       const files = req.files as Express.Multer.File[];
+      const fileUrls: string[] = [];
 
       // Validate individual file sizes
       for (const file of files) {
-        if (file.mimetype.startsWith("image/") && file.size > 2 * 1024 * 1024) {
+        if (file.mimetype.startsWith("image/") && !file.mimetype.includes("gif") && file.size > 2 * 1024 * 1024) {
           return res.status(400).json({ error: `Image ${file.originalname} exceeds 2MB limit` });
         }
         if (file.mimetype.startsWith("video/") && file.size > 10 * 1024 * 1024) {
           return res.status(400).json({ error: `Video ${file.originalname} exceeds 10MB limit` });
         }
-
-        const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${file.filename}`;
-        fileUrls.push(fileUrl);
       }
 
-      // Return single url if single file uploaded (for backward compatibility if needed) 
-      // or standard format { urls: [] } or { url: ... } is tricky if client expects 1.
-      // Current client ReportProblem uses .url. CreatePost will use .urls or .url
+      if (useSupabase) {
+        // Upload to Supabase Storage
+        for (const file of files) {
+          const result = await uploadToSupabase(file);
+          fileUrls.push(result.url);
+        }
+      } else {
+        // Use local URLs
+        for (const file of files) {
+          const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${file.filename}`;
+          fileUrls.push(fileUrl);
+        }
+      }
 
+      // Return response
       if (files.length === 1 && files[0]) {
         return res.json({ url: fileUrls[0], urls: fileUrls, type: files[0].mimetype });
       }
@@ -109,7 +141,7 @@ async function startServer() {
     }
   });
 
-  //health check endpoint
+  // Health check endpoint
   app.get("/health", (req, res) => {
     res.json({ message: "Server is running!" });
   });

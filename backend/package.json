@@ -24,6 +24,7 @@
     "@as-integrations/express5": "^1.1.2",
     "@prisma/adapter-pg": "^7.2.0",
     "@prisma/client": "^7.2.0",
+    "@supabase/supabase-js": "^2.90.0",
     "@types/multer": "^2.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

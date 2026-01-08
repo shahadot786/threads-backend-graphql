@@ -40,14 +40,14 @@ enum MediaType {
 
 // Users table
 model User {
-  id              String         @id @default(uuid())
+  id              String         @id // Set manually from Supabase Auth ID
   firstName       String         @map("first_name")
   lastName        String?        @map("last_name")
   username        String         @unique
   profileImageUrl String?        @map("profile_image_url")
   email           String         @unique
-  password        String
-  salt            String
+  // Removed password/salt - managed by Supabase Auth
+  
   is_verified     Boolean        @default(false)
   is_private      Boolean        @default(false)
   status          String?
@@ -57,10 +57,6 @@ model User {
   dob             DateTime?
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
-
-  // Auth Relations
-  refreshTokens       RefreshToken[]
-  passwordResetTokens PasswordResetToken[]
 
   // Social Relations
   followers    Follow[] @relation("following")
@@ -83,29 +79,7 @@ model User {
   @@map("users")
 }
 
-// Refresh tokens table
-model RefreshToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
-  userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@map("refresh_tokens")
-}
-
-// Password reset tokens table
-model PasswordResetToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
-  userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime @map("expires_at")
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@map("password_reset_tokens")
-}
+// Removed RefreshToken and PasswordResetToken tables
 
 // =====================
 // SOCIAL RELATIONSHIPS

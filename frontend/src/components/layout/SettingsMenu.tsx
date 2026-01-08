@@ -2,12 +2,10 @@
 
 import React from "react";
 import { useTheme } from "next-themes";
-import { useMutation } from "@apollo/client/react";
 import { useAuthStore } from "@/stores/auth";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Sun, Moon, LogOut, AlertCircle, ChevronRight } from "lucide-react";
-import { LOGOUT_MUTATION } from "@/graphql/mutations/auth";
 import { apolloClient } from "@/lib/apollo-client";
 import { useUIStore } from "@/stores/ui";
 
@@ -26,23 +24,18 @@ export function SettingsMenu({
   const logout = useAuthStore((state) => state.logout);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const router = useRouter();
-  const [logoutMutation] = useMutation(LOGOUT_MUTATION);
 
   const handleLogout = async () => {
     try {
-      // Call the backend logout mutation to clear cookies
-      await logoutMutation();
-    } catch (error) {
-      // Even if the mutation fails (e.g., network error), proceed with local logout
-      console.error("Logout mutation failed:", error);
-    } finally {
-      // Clear Apollo cache
+      // 1. Clear local auth state and Supabase session
+      await logout();
+      // 2. Clear Apollo cache
       await apolloClient.clearStore();
-      // Clear local auth state
-      logout();
-      // Redirect to login page
+      // 3. Redirect to login page
       router.replace("/login");
       if (onClose) onClose();
+    } catch (error) {
+      console.error("Logout failed:", error);
     }
   };
 

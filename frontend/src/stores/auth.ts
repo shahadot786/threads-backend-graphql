@@ -1,59 +1,75 @@
 import { create } from 'zustand';
 import type { User } from '@/types';
+import { supabase } from '@/lib/supabase';
 
 interface AuthState {
-  user: User | null;
+  user: User | null;         // Our DB Profile
+  userSession: any | null;   // Supabase Auth session user
   isAuthenticated: boolean;
   isLoading: boolean;
-  isRefreshing: boolean;
+  isRefreshing: boolean;     // Keep for compatibility if needed, though mostly unused now
   error: string | null;
-  
+
   // Actions
   setUser: (user: User | null) => void;
+  setSession: (session: any | null) => void;
   updateUser: (user: User) => void;
   setLoading: (loading: boolean) => void;
   setRefreshing: (refreshing: boolean) => void;
   setError: (error: string | null) => void;
-  login: (user: User) => void;
+  login: (user: User) => void; // Keeping signature for compatibility, but logic changes
   logout: () => void;
   clearError: () => void;
 }
 
 export const useAuthStore = create<AuthState>()((set) => ({
   user: null,
+  userSession: null,
   isAuthenticated: false,
   isLoading: true, // Start as loading to check auth
   isRefreshing: false,
   error: null,
-  
-  setUser: (user) => set({ 
-    user, 
-    isAuthenticated: !!user,
-    isLoading: false 
-  }),
+
+  setUser: (user) => set((state) => ({
+    user,
+    isAuthenticated: !!state.userSession, // Auth based on session
+    isLoading: false
+  })),
+
+  setSession: (session) => set((state) => ({
+    userSession: session?.user || null,
+    isAuthenticated: !!session?.user,
+    // If no session, we aren't loading profile
+    isLoading: !!session?.user ? state.isLoading : false
+  })),
 
   updateUser: (user) => set({ user }),
-  
+
   setLoading: (isLoading) => set({ isLoading }),
-  
+
   setRefreshing: (isRefreshing) => set({ isRefreshing }),
-  
+
   setError: (error) => set({ error }),
-  
-  login: (user) => set({ 
-    user, 
-    isAuthenticated: true, 
+
+  // Custom login: primarily for state sync, actual login happens via supabase.auth.signIn*
+  login: (user) => set({
+    user,
+    isAuthenticated: true,
     isLoading: false,
-    error: null 
+    error: null
   }),
-  
-  logout: () => set({ 
-    user: null, 
-    isAuthenticated: false, 
-    isLoading: false,
-    error: null 
-  }),
-  
+
+  logout: async () => {
+    await supabase.auth.signOut();
+    set({
+      user: null,
+      userSession: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null
+    });
+  },
+
   clearError: () => set({ error: null }),
 }));
 

@@ -1,16 +1,13 @@
 import React, { useState } from "react";
-import { useMutation } from "@apollo/client/react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ThreadsLogo } from "@/components/ui/Logo";
-import { FORGOT_PASSWORD_MUTATION } from "@/graphql/mutations/auth";
+import { supabase } from "@/lib/supabase";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [error, setError] = useState("");
-
-  const [forgotPasswordMutation] = useMutation(FORGOT_PASSWORD_MUTATION);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,9 +15,12 @@ export function ForgotPasswordForm() {
     setError("");
 
     try {
-      await forgotPasswordMutation({
-        variables: { email },
+      const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
+
+      if (authError) throw authError;
+
       setStatus("success");
     } catch (err: any) {
       setError(err.message || "Something went wrong");

@@ -1,65 +1,34 @@
 import { gql } from '@apollo/client/core';
 import { USER_FRAGMENT } from '../fragments';
 
-// ========================
-// AUTH MUTATIONS
-// ========================
+/* 
+  Supabase Auth replaces legacy mutations:
+  - LOGIN_MUTATION
+  - REFRESH_TOKEN_MUTATION
+  - LOGOUT_MUTATION
+  - LOGOUT_ALL_MUTATION
+  - FORGOT_PASSWORD_MUTATION
+  - RESET_PASSWORD_MUTATION
+*/
 
-export const LOGIN_MUTATION = gql`
-  mutation Login($email: String!, $password: String!) {
-    login(email: $email, password: $password) {
-      accessToken
-      user {
-        ...UserFields
-      }
-    }
-  }
-  ${USER_FRAGMENT}
-`;
-
+// Profile creation (called after Supabase SignUp)
 export const REGISTER_MUTATION = gql`
   mutation Register(
     $firstName: String!
     $lastName: String
     $username: String
     $email: String!
-    $password: String!
   ) {
     createUser(
       firstName: $firstName
       lastName: $lastName
       username: $username
       email: $email
-      password: $password
     ) {
       ...UserFields
     }
   }
   ${USER_FRAGMENT}
-`;
-
-export const REFRESH_TOKEN_MUTATION = gql`
-  mutation RefreshToken {
-    refreshToken {
-      accessToken
-      user {
-        ...UserFields
-      }
-    }
-  }
-  ${USER_FRAGMENT}
-`;
-
-export const LOGOUT_MUTATION = gql`
-  mutation Logout {
-    logout
-  }
-`;
-
-export const LOGOUT_ALL_MUTATION = gql`
-  mutation LogoutAll {
-    logoutAll
-  }
 `;
 
 // ========================
@@ -84,17 +53,5 @@ export const FOLLOW_USER_MUTATION = gql`
 export const UNFOLLOW_USER_MUTATION = gql`
   mutation UnfollowUser($userId: ID!) {
     unfollowUser(userId: $userId)
-  }
-`;
-
-export const FORGOT_PASSWORD_MUTATION = gql`
-  mutation ForgotPassword($email: String!) {
-    forgotPassword(email: $email)
-  }
-`;
-
-export const RESET_PASSWORD_MUTATION = gql`
-  mutation ResetPassword($token: String!, $newPassword: String!) {
-    resetPassword(token: $token, newPassword: $newPassword)
   }
 `;

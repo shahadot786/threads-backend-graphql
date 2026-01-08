@@ -1,8 +1,6 @@
 import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
-import JWT from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET;
+import { supabase } from "./supabase.js";
 
 // Socket.IO server instance
 let io: Server | null = null;
@@ -44,22 +42,28 @@ export function initializeSocket(httpServer: HttpServer): Server {
         path: "/socket.io",
     });
 
-    // Authentication middleware
-    io.use((socket, next) => {
+    // Authentication middleware using Supabase
+    io.use(async (socket, next) => {
         const token = socket.handshake.auth.token;
 
-        if (!token || !JWT_SECRET) {
+        if (!token) {
             // Allow unauthenticated connections for public events
             socket.data.userId = null;
             return next();
         }
 
         try {
-            const decoded = JWT.verify(token, JWT_SECRET) as { id: string };
-            socket.data.userId = decoded.id;
+            // Verify token with Supabase
+            const { data: { user }, error } = await supabase.auth.getUser(token);
+
+            if (error || !user) {
+                socket.data.userId = null;
+            } else {
+                socket.data.userId = user.id;
+            }
             next();
-        } catch {
-            // Invalid token, allow connection but mark as unauthenticated
+        } catch (err) {
+            console.error("[Socket] Auth error:", err);
             socket.data.userId = null;
             next();
         }
@@ -82,7 +86,7 @@ export function initializeSocket(httpServer: HttpServer): Server {
         });
     });
 
-    console.log("Socket.IO server initialized");
+    console.log("Socket.IO server initialized with Supabase Auth");
     return io;
 }
 

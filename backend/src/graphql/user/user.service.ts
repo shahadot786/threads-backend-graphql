@@ -1,27 +1,14 @@
-import { randomBytes, createHmac } from "crypto";
 import { prisma } from "../../lib/prisma.js";
-import JWT from "jsonwebtoken";
 import { Errors } from "../errors.js";
 import type { User } from "../../../generated/prisma/client.js";
 
 export interface CreateUserData {
+  id?: string; // Optional because we might auto-generate or pass from Supabase
   firstName: string;
   lastName?: string;
   username?: string;
   profileImageUrl?: string;
   email: string;
-  password: string;
-}
-
-export interface LoginPayload {
-  email: string;
-  password: string;
-}
-
-export interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-  user: User;
 }
 
 export interface UpdateUserProfileInput {
@@ -34,16 +21,6 @@ export interface UpdateUserProfileInput {
   dob?: string;
   profileImageUrl?: string;
   is_private?: boolean;
-}
-
-const JWT_SECRET = process.env.JWT_SECRET;
-const REFRESH_SECRET = process.env.REFRESH_SECRET;
-const ACCESS_TOKEN_EXPIRES = "15m";
-const REFRESH_TOKEN_EXPIRES_DAYS = 30;
-
-// Generate password hash with salt
-function generateHash(password: string, salt: string): string {
-  return createHmac("sha256", salt).update(password).digest("hex");
 }
 
 // Generate a unique username based on firstName and lastName
@@ -100,10 +77,11 @@ async function isUsernameUnique(
 }
 
 export const userService = {
-  // Create new user
+  // Create new user (Profile) - ID should come from Supabase Auth
   async createUser(data: CreateUserData) {
-    const salt = randomBytes(32).toString("hex");
-    const hashedPassword = generateHash(data.password, salt);
+    if (!data.id) {
+      throw Errors.badRequest("User ID is required");
+    }
 
     // Generate username if not provided
     let username = data.username;
@@ -119,13 +97,12 @@ export const userService = {
 
     return prisma.user.create({
       data: {
+        id: data.id, // Use ID from Supabase Auth if provided
         firstName: data.firstName,
         lastName: data.lastName ?? null,
         username,
         profileImageUrl: data.profileImageUrl ?? null,
         email: data.email,
-        password: hashedPassword,
-        salt,
       },
     });
   },
@@ -137,22 +114,6 @@ export const userService = {
 
   // Get suggested users (ordered by follower count)
   async getSuggestedUsers(first: number = 10) {
-    // Since we don't have a direct follower count column on user table yet (it's in stats via subquery usually),
-    // we can either return random users or join with follows.
-    // For performance in this MVP, let's just return users with most followers.
-    // However, Prisma sort by relation count is tricky in older versions or requires specific syntax.
-    // A simple approximation is getting users who have posts or just verified users.
-    // Let's try sorting by follower count if possible, or just return keys.
-
-    // A better approach for "Suggested" in MVP without complex analytics:
-    // Return users who strictly have > 0 followers, ordered by creation (newest) or random.
-    // OR: Use prisma's relation count sorting if enabled or supported.
-
-    // Using explicit SQL grouping for best performance, but let's stick to Prisma API for now.
-    // We'll simplisticly fetch users. For a production app, this would be a computed table.
-
-    // Let's fetch users along with their follower count and sort in memory for MVP (assuming low user count), 
-    // OR just limit to 50 and sort.
     const users = await prisma.user.findMany({
       take: 50, // Fetch a pool
       include: {
@@ -169,7 +130,6 @@ export const userService = {
       return countB - countA;
     });
 
-    // console.log(`[SuggestedUsers] Found ${users.length} users, returning top ${first}`);
     return sorted.slice(0, first);
   },
 
@@ -419,194 +379,5 @@ export const userService = {
     });
 
     return true;
-  },
-
-  // Generate access token
-  generateAccessToken(userId: string, email: string): string {
-    if (!JWT_SECRET) {
-      throw Errors.internalError("JWT_SECRET is not configured");
-    }
-    return JWT.sign({ id: userId, email }, JWT_SECRET, {
-      expiresIn: ACCESS_TOKEN_EXPIRES,
-    } as JWT.SignOptions);
-  },
-
-  // Generate refresh token and save to DB
-  async generateRefreshToken(userId: string, email: string): Promise<string> {
-    if (!REFRESH_SECRET) {
-      throw Errors.internalError("REFRESH_SECRET is not configured");
-    }
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRES_DAYS);
-
-    const token = JWT.sign({ id: userId, email }, REFRESH_SECRET, {
-      expiresIn: `${REFRESH_TOKEN_EXPIRES_DAYS}d`,
-    } as JWT.SignOptions);
-
-    await prisma.refreshToken.create({
-      data: {
-        token,
-        userId,
-        expiresAt,
-      },
-    });
-
-    return token;
-  },
-
-  // Login and generate tokens
-  async login(
-    payload: LoginPayload
-  ): Promise<
-    TokenPair & { user: { id: string; email: string; firstName: string } }
-  > {
-    const { email, password } = payload;
-    const user = await this.getUserByEmail(email);
-
-    if (!user) {
-      throw Errors.unauthenticated("Invalid email or password");
-    }
-
-    const hashedPassword = generateHash(password, user.salt);
-
-    if (hashedPassword !== user.password) {
-      throw Errors.unauthenticated("Invalid email or password");
-    }
-
-    const accessToken = this.generateAccessToken(user.id, user.email);
-    const refreshToken = await this.generateRefreshToken(user.id, user.email);
-
-    return {
-      accessToken,
-      refreshToken,
-      user,
-    };
-  },
-
-  // Refresh access token
-  async refreshAccessToken(refreshToken: string): Promise<TokenPair> {
-    // Find refresh token in DB
-    const storedToken = await prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
-      include: { user: true },
-    });
-
-    if (!storedToken) {
-      throw Errors.invalidToken("Invalid refresh token");
-    }
-
-    // Check if expired
-    if (storedToken.expiresAt < new Date()) {
-      await prisma.refreshToken.delete({ where: { id: storedToken.id } });
-      throw Errors.tokenExpired("Refresh token expired");
-    }
-
-    // Delete old refresh token (rotation)
-    await prisma.refreshToken.delete({ where: { id: storedToken.id } });
-
-    // Generate new tokens
-    const accessToken = this.generateAccessToken(
-      storedToken.user.id,
-      storedToken.user.email
-    );
-    const newRefreshToken = await this.generateRefreshToken(
-      storedToken.user.id,
-      storedToken.user.email
-    );
-
-    return {
-      accessToken,
-      refreshToken: newRefreshToken,
-      user: storedToken.user,
-    };
-  },
-
-  // Logout - delete refresh token
-  async logout(refreshToken: string): Promise<boolean> {
-    try {
-      await prisma.refreshToken.delete({
-        where: { token: refreshToken },
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  },
-
-  // Delete all refresh tokens for user (logout all devices)
-  async logoutAll(userId: string): Promise<boolean> {
-    await prisma.refreshToken.deleteMany({
-      where: { userId },
-    });
-    return true;
-  },
-
-  // Forgot Password - Generate reset token
-  async forgotPassword(email: string): Promise<boolean> {
-    const user = await this.getUserByEmail(email);
-    if (!user) return true; // Return true to prevent email enumeration
-
-    // Delete any existing reset tokens for this user
-    await prisma.passwordResetToken.deleteMany({
-      where: { userId: user.id },
-    });
-    if (!REFRESH_SECRET) {
-      throw Errors.internalError("REFRESH_SECRET is not configured");
-    }
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRES_DAYS);
-
-    const token = JWT.sign({ id: user.id, email }, REFRESH_SECRET, {
-      expiresIn: `${REFRESH_TOKEN_EXPIRES_DAYS}d`,
-    } as JWT.SignOptions);
-
-    await prisma.passwordResetToken.create({
-      data: {
-        token,
-        userId: user.id,
-        expiresAt,
-      },
-    });
-
-    // In a real app, you would send this token via email.
-    // console.log(`[PASS_RESET] Token for ${email}: ${token}`);
-
-    return true;
-  },
-
-  // Reset Password - Verify token and update password
-  async resetPassword(token: string, newPassword: string): Promise<boolean> {
-    const storedToken = await prisma.passwordResetToken.findUnique({
-      where: { token },
-      include: { user: true },
-    });
-
-    if (!storedToken) {
-      throw Errors.invalidToken("Invalid or expired reset token");
-    }
-
-    if (storedToken.expiresAt < new Date()) {
-      await prisma.passwordResetToken.delete({ where: { id: storedToken.id } });
-      throw Errors.tokenExpired("Reset token expired");
-    }
-
-    const salt = randomBytes(32).toString("hex");
-    const hashedPassword = generateHash(newPassword, salt);
-
-    await prisma.user.update({
-      where: { id: storedToken.userId },
-      data: {
-        password: hashedPassword,
-        salt,
-      },
-    });
-
-    // Delete the used token
-    await prisma.passwordResetToken.delete({ where: { id: storedToken.id } });
-
-    // Also invalidate all refresh tokens (logout from all devices after password change)
-    await this.logoutAll(storedToken.userId);
-
-    return true;
-  },
+  }
 };
