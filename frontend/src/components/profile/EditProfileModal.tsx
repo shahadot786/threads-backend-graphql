@@ -66,7 +66,7 @@ export function EditProfileModal() {
 
     setIsUploading(true);
     const uploadFormData = new FormData();
-    uploadFormData.append("file", file);
+    uploadFormData.append("files", file);
 
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/upload`, {

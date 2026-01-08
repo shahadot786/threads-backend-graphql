@@ -69,7 +69,7 @@ export function ReportProblemModal({ isOpen, onClose }: ReportProblemModalProps)
       // Upload file if exists
       if (selectedFile) {
         const formData = new FormData();
-        formData.append("file", selectedFile);
+        formData.append("files", selectedFile);
 
         const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/upload`, {
           method: "POST",
