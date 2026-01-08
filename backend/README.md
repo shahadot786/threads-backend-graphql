@@ -8,11 +8,12 @@ Apollo Server 5 GraphQL API with Express 5, Prisma ORM, and JWT authentication.
 backend/
 ├── src/
 │   ├── graphql/
-│   │   ├── user/              # User module
-│   │   │   ├── user.typeDefs.ts
-│   │   │   ├── user.resolvers.ts
-│   │   │   └── user.service.ts
+│   │   ├── user/              # User authentication & profiles
+│   │   ├── post/              # Posts, likes, bookmarks, reposts
+│   │   ├── search/            # Search users, posts, hashtags
+│   │   ├── report/            # Report system
 │   │   ├── context.ts         # Auth context & cookies
+│   │   ├── errors.ts          # Custom error handling
 │   │   ├── index.ts           # Schema aggregation
 │   │   └── server.ts          # Apollo Server setup
 │   ├── lib/
@@ -21,49 +22,69 @@ backend/
 ├── prisma/
 │   ├── schema.prisma          # Database schema
 │   └── migrations/            # Database migrations
-└── generated/                 # Generated Prisma client
+└── uploads/                   # Media file storage
 ```
 
 ## 🔐 Authentication Flow
 
-1. **Login** (`login` mutation)
-   - Validates credentials
-   - Generates access token (15min) + refresh token (7 days)
-   - Sets httpOnly cookies
-
-2. **API Requests**
-   - Browser sends cookies automatically
-   - Context extracts and verifies access token
-   - User attached to GraphQL context
-
-3. **Token Refresh** (`refreshToken` mutation)
-   - Old refresh token deleted (rotation)
-   - New token pair generated
-
-4. **Logout** (`logout` mutation)
-   - Deletes refresh token from database
-   - Clears cookies
+1. **Login** (`login` mutation) → Sets httpOnly cookies with JWT tokens
+2. **API Requests** → Context extracts and verifies access token
+3. **Token Refresh** (`refreshToken`) → Rotates refresh token
+4. **Logout** → Clears cookies and invalidates tokens
 
 ## 📋 GraphQL Schema
 
-### Queries (Protected)
+### User Queries
 ```graphql
 getUsers: [User!]!
-getUserById(id: String!): User
-getUserByEmail(email: String): User
+getUserById(id: ID!): User
+getUserByUsername(username: String!): User
 getCurrentLoggedInUser: User
+getSuggestedUsers(first: Int): [User!]!
 ```
 
-### Mutations
+### Post Queries
 ```graphql
-# Public
-createUser(firstName: String!, lastName: String, email: String!, password: String!): User!
-login(email: String!, password: String!): AuthResponse!
-refreshToken: AuthResponse!
+getPost(id: ID!): Post
+getUserPosts(userId: ID!, first: Int, after: String, filter: PostFilter): PostConnection
+getHomeFeed(first: Int, after: String): PostConnection
+getTrendingPosts(first: Int, after: String): PostConnection
+getMyBookmarks(first: Int, after: String): PostConnection
+getPostsByHashtag(tag: String!, first: Int, after: String): PostConnection
+```
 
-# Protected
+### Search Queries
+```graphql
+searchUsers(query: String!, first: Int, after: String): UserConnection
+searchPosts(query: String!, first: Int, after: String): PostConnection
+searchHashtags(query: String!, first: Int): [Hashtag!]!
+getTrendingHashtags(first: Int): [Hashtag!]!
+```
+
+### User Mutations
+```graphql
+createUser(input: CreateUserInput!): User!
+login(email: String!, password: String!): AuthResponse!
 logout: Boolean!
-logoutAll: Boolean!
+refreshToken: AuthResponse!
+updateUser(input: UpdateUserInput!): User!
+followUser(userId: ID!): Boolean!
+unfollowUser(userId: ID!): Boolean!
+blockUser(userId: ID!): Boolean!
+unblockUser(userId: ID!): Boolean!
+```
+
+### Post Mutations
+```graphql
+createPost(input: CreatePostInput!): Post!
+updatePost(postId: ID!, input: UpdatePostInput!): Post!
+deletePost(postId: ID!): Boolean!
+likePost(postId: ID!): Boolean!
+unlikePost(postId: ID!): Boolean!
+bookmarkPost(postId: ID!): Boolean!
+unbookmarkPost(postId: ID!): Boolean!
+repostPost(postId: ID!): Boolean!
+unrepostPost(postId: ID!): Boolean!
 ```
 
 ## 🔧 Environment Variables
@@ -81,20 +102,11 @@ FRONTEND_URL=http://localhost:3000
 ## 🛠 Development
 
 ```bash
-# Install dependencies
-yarn install
-
-# Generate Prisma client
-npx prisma generate
-
-# Run migrations
-npx prisma migrate dev
-
-# Start dev server
-yarn dev
-
-# Open Prisma Studio
-npx prisma studio
+yarn install          # Install dependencies
+npx prisma generate   # Generate Prisma client
+npx prisma migrate dev # Run migrations
+yarn dev              # Start dev server
+npx prisma studio     # Open Prisma Studio
 ```
 
 ## 📡 API Endpoints
@@ -104,19 +116,22 @@ npx prisma studio
 | `GET /` | Health check |
 | `POST /graphql` | GraphQL API |
 | `GET /graphql` | Apollo Sandbox |
+| `POST /upload` | Media file upload |
+| `GET /uploads/:file` | Serve uploaded files |
 
-## 🧪 Testing with cURL
+## 📦 Database Models
 
-```bash
-# Login
-curl -X POST http://localhost:8000/graphql \
-  -H "Content-Type: application/json" \
-  -c cookies.txt \
-  -d '{"query": "mutation { login(email: \"test@example.com\", password: \"test123\") { accessToken user { id firstName } } }"}'
-
-# Protected query (with cookies)
-curl -X POST http://localhost:8000/graphql \
-  -H "Content-Type: application/json" \
-  -b cookies.txt \
-  -d '{"query": "query { getCurrentLoggedInUser { id firstName email } }"}'
-```
+- **User** - User accounts and profiles
+- **Post** - Threads/posts with content and metadata
+- **PostMedia** - Images, videos, GIFs attached to posts
+- **PostLike** - User likes on posts
+- **Bookmark** - Saved posts
+- **Repost** - Reposts/shares
+- **Follow** - User follow relationships
+- **Hashtag** - Post hashtags with usage counts
+- **PostHashtag** - Post-hashtag associations
+- **PostMention** - User mentions in posts
+- **Notification** - Activity notifications
+- **RefreshToken** - Auth refresh tokens
+- **Block** - Blocked users
+- **Report** - User/post reports
