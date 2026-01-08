@@ -4,149 +4,180 @@ import {
   ApolloClient,
   InMemoryCache,
   HttpLink,
+  ApolloLink,
   from,
-  Observable,
-  FetchResult
-} from "@apollo/client/core";
-import { onError } from "@apollo/client/link/error";
+} from "@apollo/client";
+import { setContext } from "@apollo/client/link/context";
 import { ApolloProvider as BaseApolloProvider } from "@apollo/client/react";
 import { ReactNode, useEffect, useRef } from "react";
 import { useAuthStore } from "@/stores/auth";
-import { REFRESH_TOKEN_MUTATION } from "@/graphql/mutations/auth";
 import { GET_CURRENT_USER } from "@/graphql/queries/user";
+import { supabase } from "@/lib/supabase";
 import type { User } from "@/types";
 
-const GRAPHQL_URL = process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:8000/graphql";
-
-// Track if we're currently refreshing
-let isRefreshing = false;
-let refreshSubscribers: ((retry: boolean) => void)[] = [];
-
-function subscribeTokenRefresh(cb: (retry: boolean) => void) {
-  refreshSubscribers.push(cb);
-}
-
-function onRefreshComplete(success: boolean) {
-  refreshSubscribers.forEach(cb => cb(success));
-  refreshSubscribers = [];
-}
+const GRAPHQL_URL =
+  process.env.NEXT_PUBLIC_GRAPHQL_URL || "http://localhost:8000/graphql";
 
 // HTTP Link
 const httpLink = new HttpLink({
   uri: GRAPHQL_URL,
-  credentials: "include",
 });
 
-// Type for error handler params (Apollo v4 compatible)
-interface ErrorHandlerParams {
-  graphQLErrors?: ReadonlyArray<{
-    message: string;
-    extensions?: Record<string, unknown>
-  }>;
-  operation: {
-    operationName: string;
-    [key: string]: unknown;
+// Auth Link - injects Supabase token
+const authLink = setContext(async (_, { headers }) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+
+  return {
+    headers: {
+      ...headers,
+      authorization: token ? `Bearer ${token}` : "",
+    }
   };
-  forward: (op: unknown) => Observable<FetchResult>;
+});
+
+// Helper merge function for cursor-based pagination
+function paginationMerge(existing: any, incoming: any, { args }: { args: any }) {
+  // If no existing data or fresh fetch (no cursor), return incoming
+  if (!existing || !args?.after) {
+    return incoming;
+  }
+
+  // Merge: append new edges, avoiding duplicates
+  const existingCursors = new Set(
+    existing.edges.map((e: { cursor: string }) => e.cursor)
+  );
+  const newEdges = incoming.edges.filter(
+    (e: { cursor: string }) => !existingCursors.has(e.cursor)
+  );
+
+  return {
+    ...incoming,
+    edges: [...existing.edges, ...newEdges],
+  };
 }
 
-// Error Link with token refresh
-const errorLink = onError((params: unknown) => {
-  const { graphQLErrors, operation, forward } = params as ErrorHandlerParams;
-
-  if (!graphQLErrors) return;
-
-  for (const err of graphQLErrors) {
-    // Check if it's an auth error
-    const isAuthError =
-      err.extensions?.code === "UNAUTHENTICATED" ||
-      err.message.includes("Not authenticated") ||
-      err.message.includes("Token expired");
-
-    if (!isAuthError) continue;
-
-    // Don't retry refresh token or logout mutations
-    const operationName = operation.operationName;
-    if (operationName === "RefreshToken" || operationName === "Logout") {
-      return;
-    }
-
-    return new Observable<FetchResult>(observer => {
-      // If already refreshing, wait for it
-      if (isRefreshing) {
-        subscribeTokenRefresh((success) => {
-          if (success) {
-            forward(operation).subscribe(observer);
-          } else {
-            observer.error(err);
-          }
-        });
-        return;
-      }
-
-      isRefreshing = true;
-      useAuthStore.getState().setRefreshing(true);
-
-      // Try to refresh
-      apolloClient
-        .mutate<{ refreshToken: { accessToken: string; user: User } }>({
-          mutation: REFRESH_TOKEN_MUTATION,
-        })
-        .then(({ data }) => {
-          if (data?.refreshToken?.user) {
-            useAuthStore.getState().login(data.refreshToken.user);
-            isRefreshing = false;
-            useAuthStore.getState().setRefreshing(false);
-            onRefreshComplete(true);
-            // Retry the original request
-            forward(operation).subscribe(observer);
-          } else {
-            throw new Error("Refresh failed");
-          }
-        })
-        .catch(() => {
-          isRefreshing = false;
-          useAuthStore.getState().setRefreshing(false);
-          useAuthStore.getState().logout();
-          onRefreshComplete(false);
-          observer.error(err);
-        });
-    });
-  }
-});
-
-// Apollo Client
+// Apollo Client with optimized cache
 export const apolloClient = new ApolloClient({
-  link: from([errorLink, httpLink]),
+  link: from([authLink, httpLink]),
   cache: new InMemoryCache({
     typePolicies: {
+      // Entity type policies for proper cache normalization
+      Post: {
+        keyFields: ["id"],
+        fields: {
+          // Ensure booleans have sensible defaults
+          isLiked: {
+            read(existing) {
+              return existing ?? false;
+            },
+          },
+          isBookmarked: {
+            read(existing) {
+              return existing ?? false;
+            },
+          },
+          isReposted: {
+            read(existing) {
+              return existing ?? false;
+            },
+          },
+          // Counters default to 0
+          likesCount: {
+            read(existing) {
+              return existing ?? 0;
+            },
+          },
+          repliesCount: {
+            read(existing) {
+              return existing ?? 0;
+            },
+          },
+          repostsCount: {
+            read(existing) {
+              return existing ?? 0;
+            },
+          },
+        },
+      },
+      User: {
+        keyFields: ["id"],
+        fields: {
+          isFollowing: {
+            read(existing) {
+              return existing ?? false;
+            },
+          },
+          stats: {
+            merge(existing, incoming) {
+              return { ...existing, ...incoming };
+            },
+          },
+        },
+      },
+      // Query field policies for pagination
       Query: {
         fields: {
+          // Single entity lookups - read from cache first
+          getPostById: {
+            read(_, { args, toReference }) {
+              if (!args?.id) return undefined;
+              return toReference({ __typename: "Post", id: args.id });
+            },
+          },
+          getUserById: {
+            read(_, { args, toReference }) {
+              if (!args?.id) return undefined;
+              return toReference({ __typename: "User", id: args.id });
+            },
+          },
+          getUserByUsername: {
+            keyArgs: ["username"],
+          },
+          // Paginated queries
           getHomeFeed: {
             keyArgs: false,
-            merge(existing, incoming) {
-              if (!existing) return incoming;
-              // Deduplicate by cursor
-              const existingCursors = new Set(existing.edges.map((e: { cursor: string }) => e.cursor));
-              const newEdges = incoming.edges.filter((e: { cursor: string }) => !existingCursors.has(e.cursor));
-              return {
-                ...incoming,
-                edges: [...existing.edges, ...newEdges],
-              };
-            },
+            merge: paginationMerge,
+          },
+          getPublicFeed: {
+            keyArgs: false,
+            merge: paginationMerge,
           },
           getTrendingPosts: {
             keyArgs: false,
-            merge(existing, incoming) {
-              if (!existing) return incoming;
-              // Deduplicate by cursor
-              const existingCursors = new Set(existing.edges.map((e: { cursor: string }) => e.cursor));
-              const newEdges = incoming.edges.filter((e: { cursor: string }) => !existingCursors.has(e.cursor));
-              return {
-                ...incoming,
-                edges: [...existing.edges, ...newEdges],
-              };
-            },
+            merge: paginationMerge,
+          },
+          getUserPosts: {
+            keyArgs: ["userId", "filter"],
+            merge: paginationMerge,
+          },
+          getPostReplies: {
+            keyArgs: ["postId"],
+            merge: paginationMerge,
+          },
+          getMyBookmarks: {
+            keyArgs: false,
+            merge: paginationMerge,
+          },
+          getPostsByHashtag: {
+            keyArgs: ["tag"],
+            merge: paginationMerge,
+          },
+          getFollowers: {
+            keyArgs: ["userId"],
+            merge: paginationMerge,
+          },
+          getFollowing: {
+            keyArgs: ["userId"],
+            merge: paginationMerge,
+          },
+          searchUsers: {
+            keyArgs: ["query"],
+            merge: paginationMerge,
+          },
+          searchPosts: {
+            keyArgs: ["query"],
+            merge: paginationMerge,
           },
         },
       },
@@ -155,19 +186,44 @@ export const apolloClient = new ApolloClient({
   defaultOptions: {
     watchQuery: {
       fetchPolicy: "cache-and-network",
+      nextFetchPolicy: "cache-first",
     },
     query: {
-      fetchPolicy: "network-only",
+      fetchPolicy: "cache-first",
+      errorPolicy: "all",
+    },
+    mutate: {
       errorPolicy: "all",
     },
   },
 });
 
+// Helper to update post in cache (useful for mutations)
+export function updatePostInCache(postId: string, updates: Record<string, any>) {
+  apolloClient.cache.modify({
+    id: apolloClient.cache.identify({ __typename: "Post", id: postId }),
+    fields: Object.fromEntries(
+      Object.entries(updates).map(([key, value]) => [key, () => value])
+    ),
+  });
+}
+
+// Helper to update user in cache
+export function updateUserInCache(userId: string, updates: Record<string, any>) {
+  apolloClient.cache.modify({
+    id: apolloClient.cache.identify({ __typename: "User", id: userId }),
+    fields: Object.fromEntries(
+      Object.entries(updates).map(([key, value]) => [key, () => value])
+    ),
+  });
+}
+
 // Apollo Provider with auth initialization
 export function ApolloProvider({ children }: { children: ReactNode }) {
   const hasInitialized = useRef(false);
-  const setUser = useAuthStore(state => state.setUser);
-  const setLoading = useAuthStore(state => state.setLoading);
+  const setUser = useAuthStore((state) => state.setUser);
+  const setSession = useAuthStore((state) => state.setSession);
+  const setLoading = useAuthStore((state) => state.setLoading);
 
   // Initialize auth on mount
   useEffect(() => {
@@ -175,24 +231,50 @@ export function ApolloProvider({ children }: { children: ReactNode }) {
     hasInitialized.current = true;
 
     async function initAuth() {
+      setLoading(true);
       try {
-        const { data } = await apolloClient.query<{ getCurrentLoggedInUser: User | null }>({
-          query: GET_CURRENT_USER,
-          fetchPolicy: "network-only",
-        });
-        setUser(data?.getCurrentLoggedInUser || null);
-      } catch {
-        // Not authenticated, that's fine
+        // 1. Get Supabase Session
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+
+        if (session) {
+          // 2. Fetch Profile from our DB
+          const { data } = await apolloClient.query<{
+            getCurrentLoggedInUser: User | null;
+          }>({
+            query: GET_CURRENT_USER,
+            fetchPolicy: "network-only",
+          });
+          setUser(data?.getCurrentLoggedInUser || null);
+        } else {
+          setUser(null);
+        }
+      } catch (err: unknown) {
+        console.error(`[AUTH] initAuth failed:`, err);
         setUser(null);
+      } finally {
+        setLoading(false);
       }
+
+      // Listen for auth state changes
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        setSession(session);
+        if (event === 'SIGNED_IN' && session) {
+          // Re-fetch profile on sign in
+          const { data } = await apolloClient.query<{
+            getCurrentLoggedInUser: User | null;
+          }>({ query: GET_CURRENT_USER });
+          setUser(data?.getCurrentLoggedInUser || null);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+        }
+      });
     }
 
     initAuth();
-  }, [setUser, setLoading]);
+  }, [setUser, setSession, setLoading]);
 
   return (
-    <BaseApolloProvider client={apolloClient}>
-      {children}
-    </BaseApolloProvider>
+    <BaseApolloProvider client={apolloClient}>{children}</BaseApolloProvider>
   );
 }

@@ -1,6 +1,6 @@
 # Threads App
 
-A modern social threads application built with GraphQL, Next.js, and PostgreSQL featuring secure JWT authentication with refresh tokens.
+A full-featured social threads application built with GraphQL, Next.js, and PostgreSQL - a Threads/Twitter clone with modern features.
 
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
@@ -33,8 +33,8 @@ threads-app/
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/shahadot786/threads-backend-graphql.git
-cd threads-backend-graphql
+git clone https://github.com/shahadot786/threads-clone.git
+cd threads-clone
 ```
 
 ### 2. Start PostgreSQL
@@ -43,7 +43,15 @@ cd threads-backend-graphql
 docker compose up -d
 ```
 
-### 3. Start Backend
+### 3. Set Up Supabase
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Go to **Settings → API** and copy:
+   - Project URL → `SUPABASE_URL`
+   - `anon` public key → `SUPABASE_ANON_KEY`
+   - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY`
+
+### 4. Start Backend
 
 ```bash
 cd backend
@@ -54,10 +62,11 @@ yarn dev
 ```
 → GraphQL API: http://localhost:8000/graphql
 
-### 4. Start Frontend
+### 5. Start Frontend
 
 ```bash
 cd frontend
+cp .env.example .env.local  # Configure environment
 yarn install
 yarn dev
 ```
@@ -65,20 +74,39 @@ yarn dev
 
 ## ✨ Features
 
-### Implemented ✅
-- **JWT Authentication** with secure httpOnly cookies
-- **Refresh Token Rotation** for enhanced security
-- **User Registration & Login** with password hashing (HMAC-SHA256)
-- **Protected Routes** on both frontend and backend
-- **Modular GraphQL Architecture** with type-safe resolvers
-- **PostgreSQL** with Prisma ORM
+### Core Features ✅
+- **Posts/Threads** - Create, edit, delete posts with rich text
+- **Media Upload** - Images, videos, and GIF support
+- **Replies & Threads** - Nested conversation threads
+- **Likes** - Like/unlike posts with counts
+- **Reposts** - Share posts to your profile
+- **Bookmarks** - Save posts for later (accessible via sidebar Pin)
 
-### Coming Soon 🚧
-- Thread creation and feed
-- Likes and comments
-- Follow system
-- Real-time notifications
-- Profile editing with image upload
+### Social Features ✅
+- **Follow System** - Follow/unfollow users
+- **Activity Feed** - Notifications for likes, follows, mentions, replies
+- **User Profiles** - Bio, stats, profile images
+- **User Tooltips** - Hover to see user info with follow button
+
+### Discovery ✅
+- **Search** - Find users, posts, and hashtags
+- **Hashtags** - #tag support with trending tags
+- **@Mentions** - Mention users with autocomplete suggestions
+- **Trending Posts** - Discover popular content
+
+### Authentication ✅ (Supabase)
+- **Supabase Auth** - Email/password with magic links
+- **Email Verification** - Confirm email before login
+- **Password Reset** - Secure reset via email
+- **Protected Routes** - Frontend and backend guards
+- **Session Management** - Secure cookie-based sessions
+
+### UI/UX ✅
+- **Dark Mode** - Beautiful dark theme by default
+- **Responsive Design** - Works on mobile and desktop
+- **Media Lightbox** - Full-screen media viewing
+- **Quote Generator** - AI-powered quote suggestions
+- **Emoji Picker** - Rich emoji support
 
 ## 🛠 Tech Stack
 
@@ -86,9 +114,11 @@ yarn dev
 |-------|------------|
 | **Frontend** | Next.js 16, React 19, Tailwind CSS 4, Apollo Client |
 | **Backend** | Apollo Server 5, Express 5, TypeScript 5.9 |
-| **Database** | PostgreSQL 16, Prisma 7 ORM |
-| **Auth** | JWT, httpOnly Cookies, Refresh Tokens |
-| **DevOps** | Docker, Docker Compose |
+| **Database** | PostgreSQL 16 (Supabase), Prisma 7 ORM |
+| **Auth** | Supabase Auth (email + password) |
+| **Real-time** | Socket.io for live updates |
+| **Storage** | Local file storage / CDN-ready |
+| **DevOps** | Docker, Railway, Vercel |
 
 ## 📚 Documentation
 

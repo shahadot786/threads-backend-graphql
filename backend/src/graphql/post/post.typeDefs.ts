@@ -15,6 +15,24 @@ export const postTypeDefs = /* GraphQL */ `
     GIF
   }
 
+  enum PostFilter {
+    THREADS
+    REPLIES
+    REPOSTS
+    MEDIA
+    BOOKMARKS
+  }
+
+  # =========================
+  # Core Post Types
+  # =========================
+  
+  # ... (leaving this part out of replacement to minimize size, wait, I need to match context)
+  # Actually better to just do the enum block and the query block separately or carefully.
+
+  # Let's do the enum first.
+
+
   # =========================
   # Core Post Types
   # =========================
@@ -27,8 +45,11 @@ export const postTypeDefs = /* GraphQL */ `
     parentPost: Post
     repliesCount: Int!
     likesCount: Int!
+    repostsCount: Int!
     isLiked: Boolean!
     isBookmarked: Boolean!
+    isReposted: Boolean!
+    repostedBy: User
     media: [PostMedia!]
     hashtags: [Hashtag!]
     mentions: [User!]
@@ -129,13 +150,16 @@ export const postTypeDefs = /* GraphQL */ `
     getPostReplies(postId: ID!, first: Int = 20, after: String): PostConnection!
 
     # User posts (PUBLIC - respects privacy settings)
-    getUserPosts(userId: ID!, first: Int = 20, after: String): PostConnection!
+    getUserPosts(userId: ID!, filter: PostFilter = THREADS, first: Int = 20, after: String): PostConnection!
 
     # Home feed (PROTECTED - authenticated users only)
     getHomeFeed(first: Int = 20, after: String): PostConnection!
 
     # Explore / trending (PUBLIC - guests can view)
     getTrendingPosts(first: Int = 20, after: String): PostConnection!
+
+    # Public feed (PUBLIC - chronological order for guests)
+    getPublicFeed(first: Int = 20, after: String): PostConnection!
 
     # Hashtag search (PUBLIC - guests can view)
     getPostsByHashtag(tag: String!, first: Int = 20, after: String): PostConnection!
@@ -164,5 +188,9 @@ export const postTypeDefs = /* GraphQL */ `
     # Bookmarks (PROTECTED)
     bookmarkPost(postId: ID!): Boolean!
     unbookmarkPost(postId: ID!): Boolean!
+
+    # Reposts (PROTECTED)
+    repostPost(postId: ID!): Boolean!
+    unrepostPost(postId: ID!): Boolean!
   }
 `;

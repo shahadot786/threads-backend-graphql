@@ -33,8 +33,8 @@ export const GET_POST_REPLIES = gql`
 `;
 
 export const GET_USER_POSTS = gql`
-  query GetUserPosts($userId: ID!, $first: Int, $after: String) {
-    getUserPosts(userId: $userId, first: $first, after: $after) {
+  query GetUserPosts($userId: ID!, $filter: PostFilter, $first: Int, $after: String) {
+    getUserPosts(userId: $userId, filter: $filter, first: $first, after: $after) {
       edges {
         cursor
         node {
@@ -71,6 +71,24 @@ export const GET_HOME_FEED = gql`
 export const GET_TRENDING_POSTS = gql`
   query GetTrendingPosts($first: Int, $after: String) {
     getTrendingPosts(first: $first, after: $after) {
+      edges {
+        cursor
+        node {
+          ...PostFields
+        }
+      }
+      pageInfo {
+        ...PageInfoFields
+      }
+    }
+  }
+  ${POST_FRAGMENT}
+  ${PAGE_INFO_FRAGMENT}
+`;
+
+export const GET_PUBLIC_FEED = gql`
+  query GetPublicFeed($first: Int, $after: String) {
+    getPublicFeed(first: $first, after: $after) {
       edges {
         cursor
         node {

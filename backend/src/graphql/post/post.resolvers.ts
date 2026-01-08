@@ -47,6 +47,16 @@ export const postResolvers = {
       return postService.getIsBookmarked(parent.id, context.user?.id ?? null);
     },
 
+    // Is current user reposting this post
+    isReposted: async (parent: PostParent, _: unknown, context: GraphQLContext) => {
+      return postService.getIsReposted(parent.id, context.user?.id ?? null);
+    },
+
+    // Reposts count
+    repostsCount: async (parent: PostParent) => {
+      return postService.getRepostsCount(parent.id);
+    },
+
     // Get post hashtags
     hashtags: async (parent: PostParent) => {
       return postService.getPostHashtags(parent.id);
@@ -97,9 +107,10 @@ export const postResolvers = {
     // Get post replies (PUBLIC - guests can view)
     getPostReplies: async (
       _: unknown,
-      args: { postId: string; first?: number; after?: string }
+      args: { postId: string; first?: number; after?: string },
+      context: GraphQLContext
     ) => {
-      return postService.getPostReplies(args.postId, {
+      return postService.getPostReplies(args.postId, context.user?.id ?? null, {
         first: args.first ?? 20,
         after: args.after,
       });
@@ -108,13 +119,13 @@ export const postResolvers = {
     // Get user posts (PUBLIC - but respects privacy settings)
     getUserPosts: async (
       _: unknown,
-      args: { userId: string; first?: number; after?: string },
+      args: { userId: string; filter?: "THREADS" | "REPLIES" | "REPOSTS" | "MEDIA" | "BOOKMARKS"; first?: number; after?: string },
       context: GraphQLContext
     ) => {
       return postService.getUserPosts(args.userId, context.user?.id ?? null, {
         first: args.first ?? 20,
         after: args.after,
-      });
+      }, args.filter);
     },
 
     // Get home feed (PROTECTED - authenticated users only)
@@ -136,6 +147,18 @@ export const postResolvers = {
       args: { first?: number; after?: string }
     ) => {
       return postService.getTrendingPosts({
+        first: args.first ?? 20,
+        after: args.after,
+      });
+    },
+
+    // Get public feed (PUBLIC - chronological order for guests)
+    getPublicFeed: async (
+      _: unknown,
+      args: { first?: number; after?: string },
+      context: GraphQLContext
+    ) => {
+      return postService.getPublicFeed(context.user?.id || null, {
         first: args.first ?? 20,
         after: args.after,
       });
@@ -248,6 +271,26 @@ export const postResolvers = {
     ) => {
       const user = requireAuth(context);
       return postService.unbookmarkPost(user.id, args.postId);
+    },
+
+    // Repost post (PROTECTED)
+    repostPost: async (
+      _: unknown,
+      args: { postId: string },
+      context: GraphQLContext
+    ) => {
+      const user = requireAuth(context);
+      return postService.repostPost(user.id, args.postId);
+    },
+
+    // Unrepost post (PROTECTED)
+    unrepostPost: async (
+      _: unknown,
+      args: { postId: string },
+      context: GraphQLContext
+    ) => {
+      const user = requireAuth(context);
+      return postService.unrepostPost(user.id, args.postId);
     },
   },
 };

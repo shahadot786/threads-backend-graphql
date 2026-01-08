@@ -24,6 +24,7 @@ export const USER_FRAGMENT = gql`
     }
     createdAt
     updatedAt
+    isFollowing
   }
 `;
 
@@ -49,12 +50,19 @@ export const POST_FRAGMENT = gql`
     visibility
     repliesCount
     likesCount
+    repostsCount
     isLiked
     isBookmarked
+    isReposted
     createdAt
     updatedAt
     author {
-      ...UserBasicFields
+      ...UserFields
+    }
+    repostedBy {
+      id
+      username
+      profileImageUrl
     }
     media {
       id
@@ -78,6 +86,7 @@ export const POST_FRAGMENT = gql`
       }
     }
   }
+  ${USER_FRAGMENT}
   ${USER_BASIC_FRAGMENT}
 `;
 

@@ -1,5 +1,6 @@
 import { prisma } from "../../lib/prisma.js";
 import { Errors } from "../errors.js";
+import { emitToAll, emitToUser } from "../../lib/socket.js";
 import type { PostVisibility, MediaType, Prisma } from "../../../generated/prisma/client.js";
 
 // =====================
@@ -57,9 +58,10 @@ function extractMentions(content: string): string[] {
  */
 function decodeCursor(cursor: string): { createdAt: Date; id: string } {
   const decoded = Buffer.from(cursor, "base64").toString("utf-8");
-  const parts = decoded.split(":");
-  const createdAt = parts[0] ?? "";
-  const id = parts[1] ?? "";
+  // Split by the last colon, as ISO dates contain colons
+  const lastColonIndex = decoded.lastIndexOf(":");
+  const createdAt = decoded.substring(0, lastColonIndex);
+  const id = decoded.substring(lastColonIndex + 1);
   return { createdAt: new Date(createdAt), id };
 }
 
@@ -84,6 +86,24 @@ function getEndCursor<T extends { cursor: string }>(edges: T[]): string | null {
 // =====================
 
 export const postService = {
+  // =====================
+  // HELPER: Get blocked user IDs (blocked by me OR blocked me)
+  // =====================
+  async getBlockedUserIds(userId: string) {
+    const blocks = await prisma.block.findMany({
+      where: {
+        OR: [{ blockerId: userId }, { blockedId: userId }],
+      },
+      select: { blockerId: true, blockedId: true },
+    });
+
+    const blockedIds = new Set<string>();
+    for (const block of blocks) {
+      if (block.blockerId === userId) blockedIds.add(block.blockedId);
+      if (block.blockedId === userId) blockedIds.add(block.blockerId);
+    }
+    return Array.from(blockedIds);
+  },
   // =====================
   // CREATE POST
   // =====================
@@ -113,14 +133,14 @@ export const postService = {
         ...postData,
         ...(media && media.length > 0
           ? {
-              media: {
-                create: media.map((m, index) => ({
-                  mediaType: m.mediaType,
-                  mediaUrl: m.mediaUrl,
-                  position: m.position ?? index,
-                })),
-              },
-            }
+            media: {
+              create: media.map((m, index) => ({
+                mediaType: m.mediaType,
+                mediaUrl: m.mediaUrl,
+                position: m.position ?? index,
+              })),
+            },
+          }
           : {}),
       };
 
@@ -176,6 +196,9 @@ export const postService = {
         }
       }
 
+      // Emit real-time event for new post
+      emitToAll("post:created", { post });
+
       return post;
     });
   },
@@ -218,10 +241,22 @@ export const postService = {
       });
     }
 
-    return prisma.post.findUnique({
+    const fullReply = await prisma.post.findUnique({
       where: { id: reply.id },
       include: { author: true, parentPost: true, media: true },
     });
+
+    // Emit real-time event for reply
+    emitToAll("post:replied", { parentPostId, reply: fullReply });
+
+    // Notify parent author
+    if (parentPost.authorId !== authorId) {
+      emitToUser(parentPost.authorId, "notification:new", {
+        notification: { type: "REPLY", entityId: reply.id, actorId: authorId },
+      });
+    }
+
+    return fullReply;
   },
 
   // =====================
@@ -292,6 +327,21 @@ export const postService = {
       throw Errors.notFound("Post");
     }
 
+    // Check if blocked
+    if (currentUserId) {
+      const blocks = await prisma.block.findFirst({
+        where: {
+          OR: [
+            { blockerId: post.authorId, blockedId: currentUserId },
+            { blockerId: currentUserId, blockedId: post.authorId }
+          ]
+        }
+      });
+      if (blocks) {
+        throw Errors.forbidden("Post not available");
+      }
+    }
+
     // Check visibility for private posts
     if (post.visibility === "PRIVATE" && post.authorId !== currentUserId) {
       throw Errors.forbidden("This post is private");
@@ -301,13 +351,13 @@ export const postService = {
     if (post.author.is_private && post.authorId !== currentUserId) {
       const isFollowing = currentUserId
         ? await prisma.follow.findUnique({
-            where: {
-              followerId_followingId: {
-                followerId: currentUserId,
-                followingId: post.authorId,
-              },
+          where: {
+            followerId_followingId: {
+              followerId: currentUserId,
+              followingId: post.authorId,
             },
-          })
+          },
+        })
         : null;
 
       if (!isFollowing) {
@@ -321,11 +371,14 @@ export const postService = {
   // =====================
   // GET POST REPLIES (with pagination)
   // =====================
-  async getPostReplies(postId: string, pagination: PaginationInput = {}) {
+  async getPostReplies(postId: string, currentUserId: string | null, pagination: PaginationInput = {}) {
     const { first = 20, after } = pagination;
+
+    const blockedIds = currentUserId ? await this.getBlockedUserIds(currentUserId) : [];
 
     const whereClause: Prisma.PostWhereInput = {
       parentPostId: postId,
+      authorId: { notIn: blockedIds }, // Filter blocked
     };
 
     if (after) {
@@ -362,12 +415,13 @@ export const postService = {
   },
 
   // =====================
-  // GET USER POSTS (with pagination)
+  // GET USER POSTS (with pagination and optional filter)
   // =====================
   async getUserPosts(
     userId: string,
     currentUserId: string | null,
-    pagination: PaginationInput = {}
+    pagination: PaginationInput = {},
+    filter: "THREADS" | "REPLIES" | "REPOSTS" | "MEDIA" | "BOOKMARKS" = "THREADS"
   ) {
     const { first = 20, after } = pagination;
 
@@ -385,13 +439,13 @@ export const postService = {
     if (targetUser.is_private && userId !== currentUserId) {
       const isFollowing = currentUserId
         ? await prisma.follow.findUnique({
-            where: {
-              followerId_followingId: {
-                followerId: currentUserId,
-                followingId: userId,
-              },
+          where: {
+            followerId_followingId: {
+              followerId: currentUserId,
+              followingId: userId,
             },
-          })
+          },
+        })
         : null;
 
       if (!isFollowing) {
@@ -399,21 +453,332 @@ export const postService = {
       }
     }
 
-    const whereClause: Prisma.PostWhereInput = {
-      authorId: userId,
-      parentPostId: null, // Only top-level posts, not replies
-    };
-
-    if (after) {
-      const { createdAt, id } = decodeCursor(after);
-      whereClause.OR = [
-        { createdAt: { lt: createdAt } },
-        { createdAt, id: { lt: id } },
-      ];
+    // Security check: If viewing another user's profile, check if blocked
+    if (currentUserId && userId !== currentUserId) {
+      const blocks = await prisma.block.findFirst({
+        where: {
+          OR: [
+            { blockerId: userId, blockedId: currentUserId }, // They blocked me
+            { blockerId: currentUserId, blockedId: userId }  // I blocked them
+          ]
+        }
+      });
+      if (blocks) {
+        return { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
+      }
     }
 
-    const posts = await prisma.post.findMany({
-      where: whereClause,
+    let cursorDate: Date | undefined;
+    if (after) {
+      const { createdAt } = decodeCursor(after);
+      cursorDate = createdAt;
+    }
+
+    // ---------------------------------------------------------
+    // CASE 1: THREADS (Original parent posts + Reposts) - DEFAULT behavior
+    // ---------------------------------------------------------
+    if (filter === "THREADS") {
+      // Fetch user's original posts (no replies)
+      const postsWhereClause: Prisma.PostWhereInput = {
+        authorId: userId,
+        parentPostId: null,
+        ...(cursorDate && { createdAt: { lt: cursorDate } }),
+      };
+
+      const originalPosts = await prisma.post.findMany({
+        where: postsWhereClause,
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        include: {
+          author: true,
+          media: { orderBy: { position: "asc" } },
+        },
+      });
+
+      // Fetch user's reposts
+      const repostsWhereClause: Prisma.RepostWhereInput = {
+        userId: userId,
+        post: { parentPostId: null },
+        ...(cursorDate && { createdAt: { lt: cursorDate } }),
+      };
+
+      const reposts = await prisma.repost.findMany({
+        where: repostsWhereClause,
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }],
+        include: {
+          user: true,
+          post: {
+            include: {
+              author: true,
+              media: { orderBy: { position: "asc" } },
+            },
+          },
+        },
+      });
+
+      // Merge posts and reposts
+      const feedItems = [
+        ...originalPosts.map(post => ({
+          post: { ...post, repostedBy: null as typeof reposts[0]["user"] | null },
+          sortDate: post.createdAt,
+        })),
+        ...reposts.map(repost => ({
+          post: { ...repost.post, repostedBy: repost.user },
+          sortDate: repost.createdAt,
+        })),
+      ];
+
+      // Sort by date descending
+      feedItems.sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
+
+      // Slice and paginate
+      const hasNextPage = feedItems.length > first;
+      const edges = feedItems.slice(0, first).map((item) => ({
+        cursor: encodeCursor(item.sortDate, item.post.id),
+        node: item.post,
+      }));
+
+      return {
+        edges,
+        pageInfo: {
+          hasNextPage,
+          endCursor: getEndCursor(edges),
+        },
+      };
+    }
+
+    // ---------------------------------------------------------
+    // CASE 2: REPLIES (Posts that are responses to others)
+    // ---------------------------------------------------------
+    if (filter === "REPLIES") {
+      const repliesWhereClause: Prisma.PostWhereInput = {
+        authorId: userId,
+        parentPostId: { not: null }, // MUST be a reply
+        ...(cursorDate && { createdAt: { lt: cursorDate } }),
+      };
+
+      const replies = await prisma.post.findMany({
+        where: repliesWhereClause,
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        include: {
+          author: true,
+          media: { orderBy: { position: "asc" } },
+          parentPost: { include: { author: true } } // Include parent context
+        },
+      });
+
+      const hasNextPage = replies.length > first;
+      const edges = replies.slice(0, first).map((post) => ({
+        cursor: encodeCursor(post.createdAt, post.id),
+        node: post,
+      }));
+
+      return {
+        edges,
+        pageInfo: {
+          hasNextPage,
+          endCursor: getEndCursor(edges),
+        },
+      };
+    }
+
+    // ---------------------------------------------------------
+    // CASE 3: REPOSTS (Only Reposts)
+    // ---------------------------------------------------------
+    if (filter === "REPOSTS") {
+      const repostsWhereClause: Prisma.RepostWhereInput = {
+        userId: userId,
+        ...(cursorDate && { createdAt: { lt: cursorDate } }),
+      };
+
+      const reposts = await prisma.repost.findMany({
+        where: repostsWhereClause,
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }],
+        include: {
+          user: true,
+          post: {
+            include: {
+              author: true,
+              media: { orderBy: { position: "asc" } },
+            },
+          },
+        },
+      });
+
+      const hasNextPage = reposts.length > first;
+      const edges = reposts.slice(0, first).map((repost) => ({
+        cursor: encodeCursor(repost.createdAt, repost.post.id),
+        node: { ...repost.post, repostedBy: repost.user },
+      }));
+
+      return {
+        edges,
+        pageInfo: {
+          hasNextPage,
+          endCursor: getEndCursor(edges),
+        },
+      };
+    }
+
+    // ---------------------------------------------------------
+    // CASE 4: MEDIA (Posts with images/videos)
+    // ---------------------------------------------------------
+    if (filter === "MEDIA") {
+      const mediaWhereClause: Prisma.PostWhereInput = {
+        authorId: userId,
+        media: { some: {} }, // Has at least one media item
+        ...(cursorDate && { createdAt: { lt: cursorDate } }),
+      };
+
+      const mediaPosts = await prisma.post.findMany({
+        where: mediaWhereClause,
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        include: {
+          author: true,
+          media: { orderBy: { position: "asc" } },
+        },
+      });
+
+      const hasNextPage = mediaPosts.length > first;
+      const edges = mediaPosts.slice(0, first).map((post) => ({
+        cursor: encodeCursor(post.createdAt, post.id),
+        node: post,
+      }));
+
+      return {
+        edges,
+        pageInfo: {
+          hasNextPage,
+          endCursor: getEndCursor(edges),
+        },
+      };
+    }
+
+    // ---------------------------------------------------------
+    // CASE 5: BOOKMARKS (Saved posts - PRIVATE to user)
+    // ---------------------------------------------------------
+    if (filter === "BOOKMARKS") {
+      // Security check: Only allow viewing own bookmarks
+      if (userId !== currentUserId) {
+        // Return empty if trying to view someone else's bookmarks
+        return { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
+      }
+
+      const bookmarksWhereClause: Prisma.BookmarkWhereInput = {
+        userId: userId,
+        ...(cursorDate && { createdAt: { lt: cursorDate } }),
+      };
+
+      const bookmarks = await prisma.bookmark.findMany({
+        where: bookmarksWhereClause,
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }],
+        include: {
+          post: {
+            include: {
+              author: true,
+              media: { orderBy: { position: "asc" } },
+            },
+          },
+        },
+      });
+
+      const hasNextPage = bookmarks.length > first;
+      const edges = bookmarks.slice(0, first).map((bookmark) => ({
+        cursor: encodeCursor(bookmark.createdAt, bookmark.post.id), // Use bookmark creation time for sorting
+        node: bookmark.post,
+      }));
+
+      return {
+        edges,
+        pageInfo: {
+          hasNextPage,
+          endCursor: getEndCursor(edges),
+        },
+      };
+    }
+
+    // Fallback empty return if unknown filter
+    return { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
+  },
+
+  // =====================
+  // GET HOME FEED (posts from followed users + their reposts)
+  // =====================
+  async getHomeFeed(_userId: string, pagination: PaginationInput = {}) {
+    const { first = 20, after } = pagination;
+
+    // Get blocked users
+    const blockedIds = await this.getBlockedUserIds(_userId);
+
+    // Get the user's following list
+    const following = await prisma.follow.findMany({
+      where: { followerId: _userId },
+      select: { followingId: true },
+    });
+
+    // Decode cursor if present
+    let cursorDate: Date | undefined;
+    if (after) {
+      const { createdAt } = decodeCursor(after);
+      cursorDate = createdAt;
+    }
+
+    // If user follows no one, return top posts (excluding blocked)
+    if (following.length === 0) {
+      const whereClause: Prisma.PostWhereInput = {
+        visibility: "PUBLIC",
+        parentPostId: null,
+        authorId: { notIn: blockedIds },
+        // Last 7 days to keep it fresh
+        createdAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        // Apply cursor filter if present
+        ...(cursorDate && { createdAt: { lt: cursorDate, gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } }),
+      };
+
+      const topPosts = await prisma.post.findMany({
+        where: whereClause,
+        include: {
+          author: true,
+          media: { orderBy: { position: "asc" } },
+          _count: { select: { likes: true, replies: true, reposts: true } },
+        },
+        take: first + 1,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      });
+
+      const hasNextPage = topPosts.length > first;
+      const edges = topPosts.slice(0, first).map((post) => ({
+        cursor: encodeCursor(post.createdAt, post.id),
+        node: post,
+      }));
+
+      return {
+        edges,
+        pageInfo: {
+          hasNextPage,
+          endCursor: getEndCursor(edges),
+        },
+      };
+    }
+
+    const followingIds = following.map(f => f.followingId).filter(id => !blockedIds.includes(id));
+    followingIds.push(_userId); // Include own posts
+
+    // Fetch original posts
+    const postsWhereClause: Prisma.PostWhereInput = {
+      parentPostId: null,
+      visibility: { in: ["PUBLIC", "FOLLOWERS"] },
+      authorId: { in: followingIds },
+      ...(cursorDate && { createdAt: { lt: cursorDate } }),
+    };
+
+    const originalPosts = await prisma.post.findMany({
+      where: postsWhereClause,
       take: first + 1,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       include: {
@@ -422,10 +787,58 @@ export const postService = {
       },
     });
 
-    const hasNextPage = posts.length > first;
-    const edges = posts.slice(0, first).map((post) => ({
-      cursor: encodeCursor(post.createdAt, post.id),
-      node: post,
+    // Fetch reposts from followed users
+    const repostsWhereClause: Prisma.RepostWhereInput = {
+      userId: { in: followingIds },
+      post: {
+        parentPostId: null,
+        visibility: "PUBLIC",
+      },
+      ...(cursorDate && { createdAt: { lt: cursorDate } }),
+    };
+
+    const reposts = await prisma.repost.findMany({
+      where: repostsWhereClause,
+      take: first + 1,
+      orderBy: [{ createdAt: "desc" }],
+      include: {
+        user: true,
+        post: {
+          include: {
+            author: true,
+            media: { orderBy: { position: "asc" } },
+          },
+        },
+      },
+    });
+
+    // Merge posts and reposts, adding repostedBy info
+    const feedItems = [
+      ...originalPosts.map(post => ({
+        post: { ...post, repostedBy: null as typeof reposts[0]["user"] | null },
+        sortDate: post.createdAt,
+      })),
+      ...reposts.map(repost => ({
+        post: { ...repost.post, repostedBy: repost.user },
+        sortDate: repost.createdAt,
+      })),
+    ];
+
+    // Sort by date descending
+    feedItems.sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
+
+    // Deduplicate (same post might appear as original and as repost)
+    const seenPostIds = new Set<string>();
+    const uniqueFeedItems = feedItems.filter(item => {
+      if (seenPostIds.has(item.post.id)) return false;
+      seenPostIds.add(item.post.id);
+      return true;
+    });
+
+    const hasNextPage = uniqueFeedItems.length > first;
+    const edges = uniqueFeedItems.slice(0, first).map((item) => ({
+      cursor: encodeCursor(item.sortDate, item.post.id),
+      node: item.post,
     }));
 
     return {
@@ -438,37 +851,29 @@ export const postService = {
   },
 
   // =====================
-  // GET HOME FEED (posts from followed users)
+  // GET PUBLIC FEED (public posts + reposts, sorted by createdAt for guests)
   // =====================
-  async getHomeFeed(userId: string, pagination: PaginationInput = {}) {
+  async getPublicFeed(currentUserId: string | null, pagination: PaginationInput = {}) {
     const { first = 20, after } = pagination;
 
-    // Get IDs of users the current user follows
-    const following = await prisma.follow.findMany({
-      where: { followerId: userId },
-      select: { followingId: true },
-    });
+    const blockedIds = currentUserId ? await this.getBlockedUserIds(currentUserId) : [];
 
-    const followingIds = following.map((f) => f.followingId);
-    // Include own posts in feed
-    followingIds.push(userId);
-
-    const whereClause: Prisma.PostWhereInput = {
-      authorId: { in: followingIds },
-      parentPostId: null, // Only top-level posts
-      visibility: { in: ["PUBLIC", "FOLLOWERS"] },
-    };
-
+    let cursorDate: Date | undefined;
     if (after) {
-      const { createdAt, id } = decodeCursor(after);
-      whereClause.OR = [
-        { createdAt: { lt: createdAt } },
-        { createdAt, id: { lt: id } },
-      ];
+      const { createdAt } = decodeCursor(after);
+      cursorDate = createdAt;
     }
 
-    const posts = await prisma.post.findMany({
-      where: whereClause,
+    // Fetch original public posts
+    const postsWhereClause: Prisma.PostWhereInput = {
+      parentPostId: null,
+      visibility: "PUBLIC",
+      authorId: { notIn: blockedIds }, // Filter blocked
+      ...(cursorDate && { createdAt: { lt: cursorDate } }),
+    };
+
+    const originalPosts = await prisma.post.findMany({
+      where: postsWhereClause,
       take: first + 1,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       include: {
@@ -477,10 +882,57 @@ export const postService = {
       },
     });
 
-    const hasNextPage = posts.length > first;
-    const edges = posts.slice(0, first).map((post) => ({
-      cursor: encodeCursor(post.createdAt, post.id),
-      node: post,
+    // Fetch recent reposts
+    const repostsWhereClause: Prisma.RepostWhereInput = {
+      post: {
+        parentPostId: null,
+        visibility: "PUBLIC",
+      },
+      ...(cursorDate && { createdAt: { lt: cursorDate } }),
+    };
+
+    const reposts = await prisma.repost.findMany({
+      where: repostsWhereClause,
+      take: first + 1,
+      orderBy: [{ createdAt: "desc" }],
+      include: {
+        user: true,
+        post: {
+          include: {
+            author: true,
+            media: { orderBy: { position: "asc" } },
+          },
+        },
+      },
+    });
+
+    // Merge posts and reposts
+    const feedItems = [
+      ...originalPosts.map(post => ({
+        post: { ...post, repostedBy: null as typeof reposts[0]["user"] | null },
+        sortDate: post.createdAt,
+      })),
+      ...reposts.map(repost => ({
+        post: { ...repost.post, repostedBy: repost.user },
+        sortDate: repost.createdAt,
+      })),
+    ];
+
+    // Sort by date descending
+    feedItems.sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
+
+    // Deduplicate
+    const seenPostIds = new Set<string>();
+    const uniqueFeedItems = feedItems.filter(item => {
+      if (seenPostIds.has(item.post.id)) return false;
+      seenPostIds.add(item.post.id);
+      return true;
+    });
+
+    const hasNextPage = uniqueFeedItems.length > first;
+    const edges = uniqueFeedItems.slice(0, first).map((item) => ({
+      cursor: encodeCursor(item.sortDate, item.post.id),
+      node: item.post,
     }));
 
     return {
@@ -528,11 +980,28 @@ export const postService = {
       },
     });
 
-    // Sort by engagement (likes + replies)
-    posts.sort(
-      (a, b) =>
-        b._count.likes + b._count.replies - (a._count.likes + a._count.replies)
-    );
+    // Sort by engagement (likes + replies), fallback to recency
+    // Primary: engagement score (higher first)
+    // Secondary: createdAt (newer first - higher timestamp first)
+    // Tertiary: id (for consistent ordering)
+    posts.sort((a, b) => {
+      const scoreA = (a._count?.likes || 0) + (a._count?.replies || 0);
+      const scoreB = (b._count?.likes || 0) + (b._count?.replies || 0);
+
+      // Sort by engagement score (higher first)
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
+
+      // If scores are equal, sort by createdAt DESC (newer posts first)
+      const timeDiff = b.createdAt.getTime() - a.createdAt.getTime();
+      if (timeDiff !== 0) {
+        return timeDiff;
+      }
+
+      // Tertiary sort by id for consistent ordering
+      return b.id.localeCompare(a.id);
+    });
 
     const hasNextPage = posts.length > first;
     const edges = posts.slice(0, first).map((post) => ({
@@ -635,6 +1104,17 @@ export const postService = {
       });
     }
 
+    // Emit real-time event for like
+    const likesCount = await prisma.postLike.count({ where: { postId } });
+    emitToAll("post:liked", { postId, likesCount, userId });
+
+    // Notify post author via socket
+    if (post.authorId !== userId) {
+      emitToUser(post.authorId, "notification:new", {
+        notification: { type: "LIKE", entityId: postId, actorId: userId },
+      });
+    }
+
     return true;
   },
 
@@ -653,6 +1133,10 @@ export const postService = {
     await prisma.postLike.delete({
       where: { userId_postId: { userId, postId } },
     });
+
+    // Emit real-time event for unlike
+    const likesCount = await prisma.postLike.count({ where: { postId } });
+    emitToAll("post:unliked", { postId, likesCount, userId });
 
     return true;
   },
@@ -784,5 +1268,79 @@ export const postService = {
       include: { mentionedUser: true },
     });
     return mentions.map((m) => m.mentionedUser);
+  },
+
+  // =====================
+  // REPOST OPERATIONS
+  // =====================
+  async repostPost(userId: string, postId: string) {
+    const post = await prisma.post.findUnique({
+      where: { id: postId },
+      select: { id: true, authorId: true },
+    });
+
+    if (!post) {
+      throw Errors.notFound("Post");
+    }
+
+    // Prevent users from reposting their own posts
+    if (post.authorId === userId) {
+      throw Errors.badRequest("You cannot repost your own post");
+    }
+
+    // Check if already reposted
+    const existingRepost = await prisma.repost.findUnique({
+      where: { userId_postId: { userId, postId } },
+    });
+
+    if (existingRepost) {
+      throw Errors.conflict("You have already reposted this post");
+    }
+
+    await prisma.repost.create({
+      data: { userId, postId },
+    });
+
+    // Create notification for post author (if not self-repost)
+    if (post.authorId !== userId) {
+      await prisma.notification.create({
+        data: {
+          userId: post.authorId,
+          actorId: userId,
+          type: "REPOST",
+          entityId: postId,
+        },
+      });
+    }
+
+    return true;
+  },
+
+  async unrepostPost(userId: string, postId: string) {
+    const repost = await prisma.repost.findUnique({
+      where: { userId_postId: { userId, postId } },
+    });
+
+    if (!repost) {
+      throw Errors.notFound("Repost");
+    }
+
+    await prisma.repost.delete({
+      where: { userId_postId: { userId, postId } },
+    });
+
+    return true;
+  },
+
+  async getRepostsCount(postId: string) {
+    return prisma.repost.count({ where: { postId } });
+  },
+
+  async getIsReposted(postId: string, userId: string | null) {
+    if (!userId) return false;
+    const repost = await prisma.repost.findUnique({
+      where: { userId_postId: { userId, postId } },
+    });
+    return !!repost;
   },
 };

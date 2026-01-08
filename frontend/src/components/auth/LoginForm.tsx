@@ -1,37 +1,39 @@
 import React, { useState } from "react";
-import { useMutation } from "@apollo/client/react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ThreadsLogo } from "@/components/ui/Logo";
-import { LOGIN_MUTATION } from "@/graphql/mutations/auth";
+import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/stores/auth";
 
 export function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
   const router = useRouter();
-  const setLogin = useAuthStore((state) => state.login);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-
-  const [loginMutation, { loading }] = useMutation<{ login: { user: any; accessToken: string } }>(LOGIN_MUTATION);
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     try {
-      const { data } = await loginMutation({
-        variables: { email, password },
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      if (data?.login?.user) {
-        setLogin(data.login.user);
+      if (authError) throw authError;
+
+      if (data?.session) {
         onSuccess?.();
         router.push("/");
       }
     } catch (err: any) {
       setError(err.message || "Invalid email or password");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -49,8 +51,8 @@ export function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
         )}
 
         <Input
-          type="text"
-          placeholder="Username, phone or email"
+          type="email"
+          placeholder="Email address"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required

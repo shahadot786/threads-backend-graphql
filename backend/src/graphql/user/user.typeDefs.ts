@@ -20,21 +20,13 @@ export const userTypeDefs = /* GraphQL */ `
     stats: UserStats
     createdAt: String!
     updatedAt: String!
+    isFollowing: Boolean!
   }
 
   type UserStats {
     followersCount: Int!
     followingCount: Int!
     postsCount: Int!
-  }
-
-  # =========================
-  # Auth Types
-  # =========================
-
-  type AuthResponse {
-    accessToken: String!
-    user: User!
   }
 
   # =========================
@@ -58,7 +50,7 @@ export const userTypeDefs = /* GraphQL */ `
   }
 
   # =========================
-  # Notifications (User-facing)
+  # Notifications
   # =========================
 
   enum NotificationType {
@@ -71,8 +63,8 @@ export const userTypeDefs = /* GraphQL */ `
 
   type Notification {
     id: ID!
-    user: User! # receiver
-    actor: User! # who triggered it
+    user: User!
+    actor: User!
     type: NotificationType!
     entityId: ID
     isRead: Boolean!
@@ -114,21 +106,22 @@ export const userTypeDefs = /* GraphQL */ `
   # =========================
 
   extend type Query {
-    # User queries (PROTECTED except getUserByUsername)
+    # User queries
     getUsers: [User!]!
     getUserById(id: ID!): User
     getUserByUsername(username: String!): User
     getUserByEmail(email: String): User
     getCurrentLoggedInUser: User
+    getSuggestedUsers(first: Int): [User!]!
 
-    # Follow queries (PROTECTED)
+    # Follow queries
     getFollowers(userId: ID!): [User!]!
     getFollowing(userId: ID!): [User!]!
 
-    # Block queries (PROTECTED)
+    # Block queries
     getBlockedUsers: [User!]!
 
-    # Notifications (PROTECTED)
+    # Notifications
     getMyNotifications: [Notification!]!
   }
 
@@ -137,37 +130,26 @@ export const userTypeDefs = /* GraphQL */ `
   # =========================
 
   extend type Mutation {
-    # User (PUBLIC for createUser)
+    # User Profile Creation (After Supabase Auth SignUp)
     createUser(
       firstName: String!
       lastName: String
       username: String
       profileImageUrl: String
       email: String!
-      password: String!
     ): User!
 
     updateUserProfile(input: UpdateUserProfileInput!): User!
 
-    # Auth
-    login(email: String!, password: String!): AuthResponse!
-    refreshToken: AuthResponse!
-    logout: Boolean!
-    logoutAll: Boolean!
-
-    # Password Recovery
-    forgotPassword(email: String!): Boolean!
-    resetPassword(token: String!, newPassword: String!): Boolean!
-
-    # Follow (PROTECTED)
+    # Follow
     followUser(userId: ID!): Boolean!
     unfollowUser(userId: ID!): Boolean!
 
-    # Block (PROTECTED)
+    # Block
     blockUser(userId: ID!): Boolean!
     unblockUser(userId: ID!): Boolean!
 
-    # Notifications (PROTECTED)
+    # Notifications
     markNotificationAsRead(notificationId: ID!): Boolean!
     markAllNotificationsAsRead: Boolean!
   }

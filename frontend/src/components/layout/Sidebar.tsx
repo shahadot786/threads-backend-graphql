@@ -7,16 +7,9 @@ import { useAuthStore } from "@/stores/auth";
 import { useUIStore } from "@/stores/ui";
 import { cn } from "@/lib/utils";
 import { ThreadsLogo } from "@/components/ui/Logo";
-import {
-  Home,
-  Search,
-  PlusSquare,
-  Heart,
-  User,
-  Pin,
-  Menu
-} from "lucide-react";
+import { Home, Search, PlusSquare, Heart, User, Pin, Menu } from "lucide-react";
 import { SettingsMenu } from "./SettingsMenu";
+import { SavedPostsPanel } from "./SavedPostsPanel";
 
 interface NavItemProps {
   href: string;
@@ -27,9 +20,16 @@ interface NavItemProps {
   onClick?: (e: React.MouseEvent) => void;
 }
 
-function NavItem({ href, icon: Icon, isActive, requiresAuth, className, onClick }: NavItemProps) {
-  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const openLoginModal = useUIStore(state => state.openLoginModal);
+function NavItem({
+  href,
+  icon: Icon,
+  isActive,
+  requiresAuth,
+  className,
+  onClick,
+}: NavItemProps) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const openLoginModal = useUIStore((state) => state.openLoginModal);
 
   const handleClick = (e: React.MouseEvent) => {
     if (requiresAuth && !isAuthenticated) {
@@ -54,10 +54,12 @@ function NavItem({ href, icon: Icon, isActive, requiresAuth, className, onClick 
       <Icon
         size={26}
         strokeWidth={isActive ? 2.5 : 2}
-        className={cn("transition-transform duration-300 group-active:scale-90")}
+        className={cn(
+          "transition-transform duration-300 group-active:scale-90"
+        )}
       />
       {isActive && (
-        <span className="absolute left-[-2px] w-1 h-6 bg-primary rounded-r-full hidden md:block" />
+        <span className="absolute -left-0.5 w-1 h-6 bg-primary rounded-r-full hidden md:block" />
       )}
     </Link>
   );
@@ -65,11 +67,12 @@ function NavItem({ href, icon: Icon, isActive, requiresAuth, className, onClick 
 
 export function Sidebar() {
   const pathname = usePathname();
-  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
-  const user = useAuthStore(state => state.user);
-  const openCreatePost = useUIStore(state => state.openCreatePost);
-  const openLoginModal = useUIStore(state => state.openLoginModal);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
+  const openCreatePost = useUIStore((state) => state.openCreatePost);
+  const openLoginModal = useUIStore((state) => state.openLoginModal);
   const [showMenu, setShowMenu] = useState(false);
+  const [showSavedPanel, setShowSavedPanel] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
@@ -99,7 +102,7 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop Sidebar Layout */}
-      <aside className="hidden md:flex flex-col items-center py-8 w-20 flex-shrink-0 sticky top-0 h-screen bg-background border-r border-border z-40">
+      <aside className="hidden md:flex flex-col items-center py-8 w-20 shrink-0 sticky top-0 h-screen bg-background border-r border-border z-40">
         {/* Logo */}
         <div className="mb-8 p-1 hover:scale-110 transition-transform cursor-pointer">
           <Link href="/" aria-label="Threads Home">
@@ -109,18 +112,36 @@ export function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 flex flex-col items-center gap-2 w-full px-2">
-          <NavItem href="/" icon={Home} isActive={pathname === "/"} />
-          <NavItem href="/search" icon={Search} isActive={pathname === "/search"} />
+          <NavItem
+            href="/"
+            icon={Home}
+            isActive={pathname === "/"}
+            onClick={(e) => {
+              if (pathname === "/") {
+                e.preventDefault();
+                useUIStore.getState().triggerHomeRefresh();
+              }
+            }}
+          />
+          <NavItem
+            href="/search"
+            icon={Search}
+            isActive={pathname === "/search"}
+          />
 
-          <button
-            onClick={handleCreateClick}
-            className="group flex items-center justify-center p-3 rounded-xl transition-all duration-300 text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
-            aria-label="Create Post"
-          >
-            <PlusSquare size={26} strokeWidth={2} className="transition-transform duration-300 group-active:scale-90" />
-          </button>
+          <NavItem
+            href="/create"
+            icon={PlusSquare}
+            isActive={pathname === "/create"}
+            requiresAuth
+          />
 
-          <NavItem href="/activity" icon={Heart} isActive={pathname === "/activity"} requiresAuth />
+          <NavItem
+            href="/activity"
+            icon={Heart}
+            isActive={pathname === "/activity"}
+            requiresAuth
+          />
           <NavItem
             href={user ? `/@${user.username}` : "/login"}
             icon={User}
@@ -130,16 +151,25 @@ export function Sidebar() {
         </nav>
 
         {/* Bottom Actions */}
-        <div className="mt-auto flex flex-col items-center gap-2 pb-2 w-full px-2 relative" ref={menuRef}>
+        <div
+          className="mt-auto flex flex-col items-center gap-2 pb-2 w-full px-2 relative"
+          ref={menuRef}
+        >
           {showMenu && (
             <div className="absolute bottom-full left-4 mb-2 z-50 w-64 bg-card border border-border rounded-2xl shadow-2xl animate-scale-in origin-bottom-left p-1.5">
               <SettingsMenu onClose={() => setShowMenu(false)} />
             </div>
           )}
 
-          <button className="p-3 rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-300" aria-label="Pinned Threads">
-            <Pin size={24} />
-          </button>
+          {isAuthenticated && (
+            <button
+              onClick={() => setShowSavedPanel(true)}
+              className="p-3 rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-300"
+              aria-label="Saved Posts"
+            >
+              <Pin size={24} />
+            </button>
+          )}
 
           <button
             onClick={() => setShowMenu(!showMenu)}
@@ -158,17 +188,36 @@ export function Sidebar() {
 
       {/* Mobile Bottom Nav */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-background/95 backdrop-blur-xl flex items-center justify-around px-4 z-50 border-t border-border shadow-[0_-4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">
-        <NavItem href="/" icon={Home} isActive={pathname === "/"} />
-        <NavItem href="/search" icon={Search} isActive={pathname === "/search"} />
+        <NavItem
+          href="/"
+          icon={Home}
+          isActive={pathname === "/"}
+          onClick={(e) => {
+            if (pathname === "/") {
+              e.preventDefault();
+              useUIStore.getState().triggerHomeRefresh();
+            }
+          }}
+        />
+        <NavItem
+          href="/search"
+          icon={Search}
+          isActive={pathname === "/search"}
+        />
 
-        <button
-          onClick={handleCreateClick}
-          className="p-3 text-muted-foreground hover:text-foreground transition-colors active:scale-90"
-        >
-          <PlusSquare size={26} />
-        </button>
+        <NavItem
+          href="/create"
+          icon={PlusSquare}
+          isActive={pathname === "/create"}
+          requiresAuth
+        />
 
-        <NavItem href="/activity" icon={Heart} isActive={pathname === "/activity"} requiresAuth />
+        <NavItem
+          href="/activity"
+          icon={Heart}
+          isActive={pathname === "/activity"}
+          requiresAuth
+        />
 
         <NavItem
           href={user ? `/@${user.username}` : "/login"}
@@ -177,6 +226,12 @@ export function Sidebar() {
           requiresAuth
         />
       </nav>
+
+      {/* Saved Posts Panel */}
+      <SavedPostsPanel
+        isOpen={showSavedPanel}
+        onClose={() => setShowSavedPanel(false)}
+      />
     </>
   );
 }

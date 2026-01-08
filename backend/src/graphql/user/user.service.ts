@@ -1,25 +1,14 @@
-import { randomBytes, createHmac } from "crypto";
 import { prisma } from "../../lib/prisma.js";
-import JWT from "jsonwebtoken";
 import { Errors } from "../errors.js";
+import type { User } from "../../../generated/prisma/client.js";
 
 export interface CreateUserData {
+  id?: string; // Optional because we might auto-generate or pass from Supabase
   firstName: string;
   lastName?: string;
   username?: string;
   profileImageUrl?: string;
   email: string;
-  password: string;
-}
-
-export interface LoginPayload {
-  email: string;
-  password: string;
-}
-
-export interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
 }
 
 export interface UpdateUserProfileInput {
@@ -34,24 +23,15 @@ export interface UpdateUserProfileInput {
   is_private?: boolean;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET;
-const ACCESS_TOKEN_EXPIRES = "15m";
-const REFRESH_TOKEN_EXPIRES_DAYS = 7;
-
-// Generate password hash with salt
-function generateHash(password: string, salt: string): string {
-  return createHmac("sha256", salt).update(password).digest("hex");
-}
-
-// Generate random token
-function generateRandomToken(): string {
-  return randomBytes(40).toString("hex");
-}
-
 // Generate a unique username based on firstName and lastName
-async function generateUniqueUsername(firstName: string, lastName?: string): Promise<string> {
+async function generateUniqueUsername(
+  firstName: string,
+  lastName?: string
+): Promise<string> {
   // Create base username from firstName and lastName (lowercase, no spaces)
-  const baseName = `${firstName}${lastName || ""}`.toLowerCase().replace(/\s+/g, "");
+  const baseName = `${firstName}${lastName || ""}`
+    .toLowerCase()
+    .replace(/\s+/g, "");
 
   let username = baseName;
   let isUnique = false;
@@ -83,7 +63,10 @@ async function generateUniqueUsername(firstName: string, lastName?: string): Pro
 }
 
 // Check if username is unique (for updates)
-async function isUsernameUnique(username: string, excludeUserId?: string): Promise<boolean> {
+async function isUsernameUnique(
+  username: string,
+  excludeUserId?: string
+): Promise<boolean> {
   const existingUser = await prisma.user.findUnique({
     where: { username },
   });
@@ -94,10 +77,11 @@ async function isUsernameUnique(username: string, excludeUserId?: string): Promi
 }
 
 export const userService = {
-  // Create new user
+  // Create new user (Profile) - ID should come from Supabase Auth
   async createUser(data: CreateUserData) {
-    const salt = randomBytes(32).toString("hex");
-    const hashedPassword = generateHash(data.password, salt);
+    if (!data.id) {
+      throw Errors.badRequest("User ID is required");
+    }
 
     // Generate username if not provided
     let username = data.username;
@@ -113,13 +97,12 @@ export const userService = {
 
     return prisma.user.create({
       data: {
+        id: data.id, // Use ID from Supabase Auth if provided
         firstName: data.firstName,
         lastName: data.lastName ?? null,
         username,
         profileImageUrl: data.profileImageUrl ?? null,
         email: data.email,
-        password: hashedPassword,
-        salt,
       },
     });
   },
@@ -127,6 +110,27 @@ export const userService = {
   // Get all users
   async getAllUsers() {
     return prisma.user.findMany();
+  },
+
+  // Get suggested users (ordered by follower count)
+  async getSuggestedUsers(first: number = 10) {
+    const users = await prisma.user.findMany({
+      take: 50, // Fetch a pool
+      include: {
+        _count: {
+          select: { followers: true }
+        }
+      }
+    });
+
+    // Sort by follower count descending with safety check
+    const sorted = users.sort((a, b) => {
+      const countA = (a as any)._count?.followers ?? 0;
+      const countB = (b as any)._count?.followers ?? 0;
+      return countB - countA;
+    });
+
+    return sorted.slice(0, first);
   },
 
   // Get user by ID
@@ -163,8 +167,12 @@ export const userService = {
         ...(input.bio !== undefined && { bio: input.bio }),
         ...(input.website !== undefined && { website: input.website }),
         ...(input.location !== undefined && { location: input.location }),
-        ...(input.dob !== undefined && { dob: input.dob ? new Date(input.dob) : null }),
-        ...(input.profileImageUrl !== undefined && { profileImageUrl: input.profileImageUrl }),
+        ...(input.dob !== undefined && {
+          dob: input.dob ? new Date(input.dob) : null,
+        }),
+        ...(input.profileImageUrl !== undefined && {
+          profileImageUrl: input.profileImageUrl,
+        }),
         ...(input.is_private !== undefined && { is_private: input.is_private }),
       },
     });
@@ -235,6 +243,19 @@ export const userService = {
     });
 
     return true;
+  },
+
+  // Check if user follows target user
+  async isFollowing(followerId: string, followingId: string) {
+    const follow = await prisma.follow.findUnique({
+      where: {
+        followerId_followingId: {
+          followerId,
+          followingId,
+        },
+      },
+    });
+    return !!follow;
   },
 
   // Get followers of a user
@@ -358,185 +379,5 @@ export const userService = {
     });
 
     return true;
-  },
-
-  // Generate access token
-  generateAccessToken(userId: string, email: string): string {
-    if (!JWT_SECRET) {
-      throw Errors.internalError("JWT_SECRET is not configured");
-    }
-    return JWT.sign({ id: userId, email }, JWT_SECRET, {
-      expiresIn: ACCESS_TOKEN_EXPIRES,
-    } as JWT.SignOptions);
-  },
-
-  // Generate refresh token and save to DB
-  async generateRefreshToken(userId: string): Promise<string> {
-    const token = generateRandomToken();
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRES_DAYS);
-
-    await prisma.refreshToken.create({
-      data: {
-        token,
-        userId,
-        expiresAt,
-      },
-    });
-
-    return token;
-  },
-
-  // Login and generate tokens
-  async login(
-    payload: LoginPayload
-  ): Promise<
-    TokenPair & { user: { id: string; email: string; firstName: string } }
-  > {
-    const { email, password } = payload;
-    const user = await this.getUserByEmail(email);
-
-    if (!user) {
-      throw Errors.unauthenticated("Invalid email or password");
-    }
-
-    const hashedPassword = generateHash(password, user.salt);
-
-    if (hashedPassword !== user.password) {
-      throw Errors.unauthenticated("Invalid email or password");
-    }
-
-    const accessToken = this.generateAccessToken(user.id, user.email);
-    const refreshToken = await this.generateRefreshToken(user.id);
-
-    return {
-      accessToken,
-      refreshToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-      },
-    };
-  },
-
-  // Refresh access token
-  async refreshAccessToken(refreshToken: string): Promise<TokenPair> {
-    // Find refresh token in DB
-    const storedToken = await prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
-      include: { user: true },
-    });
-
-    if (!storedToken) {
-      throw Errors.invalidToken("Invalid refresh token");
-    }
-
-    // Check if expired
-    if (storedToken.expiresAt < new Date()) {
-      await prisma.refreshToken.delete({ where: { id: storedToken.id } });
-      throw Errors.tokenExpired("Refresh token expired");
-    }
-
-    // Delete old refresh token (rotation)
-    await prisma.refreshToken.delete({ where: { id: storedToken.id } });
-
-    // Generate new tokens
-    const accessToken = this.generateAccessToken(
-      storedToken.user.id,
-      storedToken.user.email
-    );
-    const newRefreshToken = await this.generateRefreshToken(
-      storedToken.user.id
-    );
-
-    return {
-      accessToken,
-      refreshToken: newRefreshToken,
-    };
-  },
-
-  // Logout - delete refresh token
-  async logout(refreshToken: string): Promise<boolean> {
-    try {
-      await prisma.refreshToken.delete({
-        where: { token: refreshToken },
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  },
-
-  // Delete all refresh tokens for user (logout all devices)
-  async logoutAll(userId: string): Promise<boolean> {
-    await prisma.refreshToken.deleteMany({
-      where: { userId },
-    });
-    return true;
-  },
-
-  // Forgot Password - Generate reset token
-  async forgotPassword(email: string): Promise<boolean> {
-    const user = await this.getUserByEmail(email);
-    if (!user) return true; // Return true to prevent email enumeration
-
-    // Delete any existing reset tokens for this user
-    await prisma.passwordResetToken.deleteMany({
-      where: { userId: user.id },
-    });
-
-    const token = generateRandomToken();
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 1); // Token expires in 1 hour
-
-    await prisma.passwordResetToken.create({
-      data: {
-        token,
-        userId: user.id,
-        expiresAt,
-      },
-    });
-
-    // In a real app, you would send this token via email.
-    console.log(`[PASS_RESET] Token for ${email}: ${token}`);
-
-    return true;
-  },
-
-  // Reset Password - Verify token and update password
-  async resetPassword(token: string, newPassword: string): Promise<boolean> {
-    const storedToken = await prisma.passwordResetToken.findUnique({
-      where: { token },
-      include: { user: true },
-    });
-
-    if (!storedToken) {
-      throw Errors.invalidToken("Invalid or expired reset token");
-    }
-
-    if (storedToken.expiresAt < new Date()) {
-      await prisma.passwordResetToken.delete({ where: { id: storedToken.id } });
-      throw Errors.tokenExpired("Reset token expired");
-    }
-
-    const salt = randomBytes(32).toString("hex");
-    const hashedPassword = generateHash(newPassword, salt);
-
-    await prisma.user.update({
-      where: { id: storedToken.userId },
-      data: {
-        password: hashedPassword,
-        salt,
-      },
-    });
-
-    // Delete the used token
-    await prisma.passwordResetToken.delete({ where: { id: storedToken.id } });
-
-    // Also invalidate all refresh tokens (logout from all devices after password change)
-    await this.logoutAll(storedToken.userId);
-
-    return true;
-  },
+  }
 };

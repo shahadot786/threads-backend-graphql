@@ -7,8 +7,8 @@ Thank you for your interest in contributing! 🎉
 ### 1. Fork & Clone
 
 ```bash
-git clone https://github.com/shahadot786/threads-backend-graphql.git
-cd threads-backend-graphql
+git clone https://github.com/shahadot786/threads-clone.git
+cd threads-clone
 ```
 
 ### 2. Set Up Development Environment
@@ -26,6 +26,7 @@ yarn dev
 
 # Frontend (new terminal)
 cd frontend
+cp .env.example .env.local
 yarn install
 yarn dev
 ```
@@ -55,34 +56,57 @@ feat: add thread creation
 fix: resolve login redirect issue
 docs: update API documentation
 refactor: improve auth service
+chore: update dependencies
 ```
 
 ### Branch Naming
 
-- `feature/` - New features
-- `fix/` - Bug fixes
-- `docs/` - Documentation
-- `refactor/` - Code improvements
+| Prefix | Purpose |
+|--------|---------|
+| `feature/` | New features |
+| `fix/` | Bug fixes |
+| `docs/` | Documentation |
+| `refactor/` | Code improvements |
+| `chore/` | Maintenance tasks |
 
 ## Pull Request Process
 
-1. **Update your branch** with main
+### Before Submitting
+
+- [ ] Branch is up to date with `master`
+- [ ] Code compiles without errors (`npx tsc --noEmit`)
+- [ ] No console errors in browser
+- [ ] Existing features still work
+- [ ] New code follows project patterns
+
+### Creating a PR
+
+1. **Push your branch**
    ```bash
-   git fetch origin
-   git rebase origin/main
+   git push origin feature/your-feature
    ```
 
-2. **Test your changes**
-   - Backend compiles without errors
-   - Frontend builds successfully
-   - All existing functionality works
+2. **Open a Pull Request** on GitHub
 
-3. **Create PR** with clear description
+3. **Fill out the PR template** with:
    - What does this PR do?
    - How to test it?
    - Screenshots (if UI changes)
 
-4. **Address review feedback**
+4. **Wait for CI** - Ensure checks pass
+
+5. **Address review feedback** promptly
+
+## Code Review Checklist
+
+Reviewers will check:
+
+- [ ] Code is readable and well-structured
+- [ ] TypeScript types are correct
+- [ ] No security vulnerabilities
+- [ ] Error handling is appropriate
+- [ ] Performance considerations addressed
+- [ ] Tests added (if applicable)
 
 ## Project Structure
 
@@ -100,6 +124,29 @@ refactor: improve auth service
 1. Create: `frontend/src/app/[route]/page.tsx`
 2. Add auth check if needed (protected/guest-only)
 3. Use Apollo hooks for data fetching
+4. Add to navigation if needed
+
+## Issue Guidelines
+
+### Before Creating an Issue
+
+1. Search existing issues to avoid duplicates
+2. Check if it's already fixed in `master`
+
+### Bug Reports
+
+Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.md) and include:
+- Steps to reproduce
+- Expected vs actual behavior
+- Browser/OS information
+- Screenshots or error logs
+
+### Feature Requests
+
+Use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.md) and include:
+- Problem description
+- Proposed solution
+- Alternative approaches considered
 
 ## Need Help?
 

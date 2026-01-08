@@ -50,6 +50,15 @@ export const GET_FOLLOWING = gql`
   ${USER_BASIC_FRAGMENT}
 `;
 
+export const GET_BLOCKED_USERS = gql`
+  query GetBlockedUsers {
+    getBlockedUsers {
+      ...UserBasicFields
+    }
+  }
+  ${USER_BASIC_FRAGMENT}
+`;
+
 export const GET_MY_NOTIFICATIONS = gql`
   query GetMyNotifications {
     getMyNotifications {
@@ -59,9 +68,9 @@ export const GET_MY_NOTIFICATIONS = gql`
       isRead
       createdAt
       actor {
-        ...UserBasicFields
+        ...UserFields
       }
     }
   }
-  ${USER_BASIC_FRAGMENT}
+  ${USER_FRAGMENT}
 `;

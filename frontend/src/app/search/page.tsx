@@ -1,16 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useLazyQuery } from "@apollo/client/react";
+import { useQuery, useLazyQuery } from "@apollo/client/react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { PostCard } from "@/components/post/PostCard";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/Avatar";
 import { PostSkeleton } from "@/components/ui/Loading";
-import { SEARCH_USERS, SEARCH_POSTS } from "@/graphql/queries/search";
+import { SEARCH_USERS, SEARCH_POSTS, GET_SUGGESTED_USERS } from "@/graphql/queries/search";
+import { GET_TRENDING_POSTS } from "@/graphql/queries/post";
 import { debounce } from "@/lib/utils";
 import Link from "next/link";
 import type { UserConnection, PostConnection, User } from "@/types";
+import { UserResultCard } from "@/components/search/UserResultCard";
 
 type SearchTab = "users" | "posts";
 
@@ -18,11 +19,21 @@ export default function SearchPage() {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<SearchTab>("users");
 
+  // Default data - fetch on mount
+  const { data: suggestedUsersData, loading: suggestedLoading } = useQuery<{ getSuggestedUsers: User[] }>(GET_SUGGESTED_USERS, {
+    variables: { first: 10 },
+  });
+
+  const { data: trendingPostsData, loading: trendingLoading } = useQuery<{ getTrendingPosts: PostConnection }>(GET_TRENDING_POSTS, {
+    variables: { first: 10 },
+  });
+
+  // Search queries
   const [searchUsers, { data: usersData, loading: usersLoading }] = useLazyQuery<{ searchUsers: UserConnection }>(SEARCH_USERS);
   const [searchPosts, { data: postsData, loading: postsLoading }] = useLazyQuery<{ searchPosts: PostConnection }>(SEARCH_POSTS);
 
-  const handleSearch = debounce((value: string) => {
-    if (value.trim().length < 2) return;
+  const handleSearch = debounce((value: unknown) => {
+    if (typeof value !== 'string' || value.trim().length < 2) return;
 
     if (activeTab === "users") {
       searchUsers({ variables: { query: value, first: 20 } });
@@ -48,9 +59,14 @@ export default function SearchPage() {
     }
   };
 
+  // Determine what to show
+  const isSearching = query.length >= 2;
   const users = usersData?.searchUsers?.edges || [];
   const posts = postsData?.searchPosts?.edges || [];
+  const suggestedUsers = suggestedUsersData?.getSuggestedUsers || [];
+  const trendingPosts = trendingPostsData?.getTrendingPosts?.edges || [];
   const loading = usersLoading || postsLoading;
+  const defaultLoading = suggestedLoading || trendingLoading;
 
   return (
     <MainLayout>
@@ -110,10 +126,51 @@ export default function SearchPage() {
 
       {/* Results */}
       <div className="pb-20 md:pb-4 min-h-[400px]">
-        {query.length === 0 ? (
-          <div className="py-20 text-center animate-fade-in">
-            <p className="text-muted-foreground text-sm">Search for users or posts</p>
-          </div>
+        {!isSearching ? (
+          // Show default content (suggested users / trending posts)
+          activeTab === "users" ? (
+            defaultLoading ? (
+              <div className="space-y-0 pt-0">
+                <PostSkeleton />
+                <PostSkeleton />
+                <PostSkeleton />
+              </div>
+            ) : suggestedUsers.length === 0 ? (
+              <div className="py-20 text-center animate-fade-in">
+                <p className="text-muted-foreground text-sm">No suggested users</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/10">
+                <div className="px-4 py-3">
+                  <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Suggested for you</p>
+                </div>
+                {suggestedUsers.map((user) => (
+                  <UserResultCard key={user.id} user={user} />
+                ))}
+              </div>
+            )
+          ) : (
+            defaultLoading ? (
+              <div className="space-y-0 pt-0">
+                <PostSkeleton />
+                <PostSkeleton />
+                <PostSkeleton />
+              </div>
+            ) : trendingPosts.length === 0 ? (
+              <div className="py-20 text-center animate-fade-in">
+                <p className="text-muted-foreground text-sm">No trending posts</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border/10">
+                <div className="px-4 py-3">
+                  <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Trending posts</p>
+                </div>
+                {trendingPosts.map(({ node: post }) => (
+                  <PostCard key={post.id} post={post} />
+                ))}
+              </div>
+            )
+          )
         ) : query.length < 2 ? (
           <div className="py-20 text-center animate-fade-in">
             <p className="text-muted-foreground text-sm">Enter at least 2 characters</p>
@@ -132,38 +189,7 @@ export default function SearchPage() {
           ) : (
             <div className="divide-y divide-border/10">
               {users.map((edge) => (
-                <Link
-                  key={edge.node.id}
-                  href={`/@${edge.node.username}`}
-                  className="flex items-center gap-4 px-4 py-4 hover:bg-secondary/20 transition-all group"
-                >
-                  <Avatar className="w-12 h-12 border border-border/30">
-                    <AvatarImage src={edge.node.profileImageUrl || ""} alt={edge.node.username} />
-                    <AvatarFallback className="bg-muted text-muted-foreground">
-                      {edge.node.firstName[0]}{edge.node.lastName?.[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-foreground truncate transition-colors group-hover:underline">
-                        {edge.node.username}
-                      </span>
-                    </div>
-                    <p className="text-muted-foreground text-[14px] truncate leading-tight">
-                      {edge.node.firstName} {edge.node.lastName}
-                    </p>
-                    {edge.node.stats && (
-                      <p className="text-muted-foreground text-[13px] mt-0.5">
-                        {edge.node.stats.followersCount.toLocaleString()} followers
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex-shrink-0">
-                    <button className="h-9 px-6 rounded-xl border border-border/50 text-[14px] font-bold hover:bg-foreground hover:text-background transition-all active:scale-95">
-                      Follow
-                    </button>
-                  </div>
-                </Link>
+                <UserResultCard key={edge.node.id} user={edge.node} />
               ))}
             </div>
           )

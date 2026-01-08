@@ -1,148 +1,224 @@
 # Deployment Guide
 
-## Deployment Options
+Deploy the Threads App to production using Supabase (database + auth), Railway (backend), and Vercel (frontend).
 
-### Option 1: Docker Compose (Recommended for Small Scale)
+## Prerequisites
 
-#### Production docker-compose.yml
+- [Supabase](https://supabase.com) account (free tier works)
+- [Railway](https://railway.app) account
+- [Vercel](https://vercel.com) account
+- GitHub repository with your code
 
-```yaml
-services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+---
 
-  backend:
-    build: ./backend
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
-      JWT_SECRET: ${JWT_SECRET}
-      FRONTEND_URL: ${FRONTEND_URL}
-    depends_on:
-      postgres:
-        condition: service_healthy
+## Step 1: Supabase Setup
 
-  frontend:
-    build: ./frontend
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      NEXT_PUBLIC_GRAPHQL_URL: ${BACKEND_URL}/graphql
+Supabase provides both PostgreSQL database and authentication.
 
-volumes:
-  postgres_data:
-```
+### 1.1 Create Project
 
-### Option 2: Cloud Deployment
+1. Go to [supabase.com](https://supabase.com) and create a new project
+2. Choose a strong database password (save it!)
+3. Select a region close to your users
 
-#### Backend (Render/Railway/Fly.io)
+### 1.2 Get API Keys
 
-1. Connect your GitHub repository
-2. Set build command: `yarn install && npx prisma generate && yarn build`
-3. Set start command: `yarn start`
-4. Add environment variables:
-   - `DATABASE_URL`
-   - `JWT_SECRET`
-   - `FRONTEND_URL`
+Navigate to **Settings → API** and copy:
 
-#### Frontend (Vercel)
+| Key | Use In | Variable Name |
+|-----|--------|---------------|
+| Project URL | Backend + Frontend | `SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_URL` |
+| `anon` public | Frontend only | `NEXT_PUBLIC_SUPABASE_ANON_KEY` |
+| `service_role` secret | Backend only | `SUPABASE_SERVICE_ROLE_KEY` |
 
-1. Import from GitHub
-2. Framework preset: Next.js
-3. Add environment variable:
-   - `NEXT_PUBLIC_GRAPHQL_URL`
+### 1.3 Get Database URL
 
-#### Database (Neon/Supabase/Railway)
+Navigate to **Settings → Database** and copy:
 
-1. Create PostgreSQL database
-2. Copy connection string
-3. Run migrations: `npx prisma migrate deploy`
+- **Connection string** (URI format) → `DATABASE_URL`
+- Make sure to replace `[YOUR-PASSWORD]` with your database password
 
-## Environment Variables
+### 1.4 Configure Auth Settings
 
-### Backend (.env)
+Navigate to **Authentication → URL Configuration**:
+
+1. Set **Site URL**: `https://your-frontend-domain.vercel.app`
+2. Add **Redirect URLs**:
+   - `https://your-frontend-domain.vercel.app/auth/callback`
+   - `http://localhost:3000/auth/callback` (for development)
+
+### 1.5 Configure Email Templates (Optional)
+
+Navigate to **Authentication → Email Templates** to customize:
+- Confirm signup email
+- Reset password email
+
+---
+
+## Step 2: Railway Backend Deployment
+
+### 2.1 Create Railway Project
+
+1. Go to [railway.app](https://railway.app) and create a new project
+2. Select **Deploy from GitHub repo**
+3. Choose your repository
+4. Set **Root Directory**: `backend`
+
+### 2.2 Configure Build Settings
+
+In your Railway project settings:
+
+| Setting | Value |
+|---------|-------|
+| Build Command | `yarn install && npx prisma generate` |
+| Start Command | `yarn start` |
+| Watch Paths | `/backend/**` |
+
+### 2.3 Add Environment Variables
+
+Add these variables in Railway's **Variables** tab:
 
 ```env
-# Database
-DATABASE_URL=postgresql://user:password@host:5432/dbname
+# Database (from Supabase)
+DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
 
-# Authentication
-JWT_SECRET=your-super-secret-key-at-least-32-characters-long
+# Supabase Auth
+SUPABASE_URL=https://[PROJECT-REF].supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
 # Server
 PORT=8000
 NODE_ENV=production
-FRONTEND_URL=https://your-frontend-domain.com
+FRONTEND_URL=https://your-frontend.vercel.app
 ```
 
-### Frontend (.env.local)
+### 2.4 Run Database Migrations
 
-```env
-NEXT_PUBLIC_GRAPHQL_URL=https://your-backend-domain.com/graphql
-```
-
-## SSL/HTTPS
-
-For production, use HTTPS:
-- **Render/Railway/Vercel**: SSL included automatically
-- **Self-hosted**: Use nginx with Let's Encrypt
-
-### Example nginx configuration
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name api.threads-app.com;
-
-    ssl_certificate /etc/letsencrypt/live/api.threads-app.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/api.threads-app.com/privkey.pem;
-
-    location / {
-        proxy_pass http://localhost:8000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-## Database Migrations
+After deployment, run migrations via Railway CLI or shell:
 
 ```bash
-# Development
-npx prisma migrate dev
-
-# Production (apply pending migrations)
 npx prisma migrate deploy
-
-# Reset database (DANGER: deletes all data)
-npx prisma migrate reset
 ```
 
-## Health Checks
+Or add to your start script: `"start": "npx prisma migrate deploy && node dist/src/index.js"`
 
-- Backend: `GET /` returns `{"message": "Hello, Threads App Backend!"}`
-- GraphQL: `POST /graphql` with introspection query
+### 2.5 Get Backend URL
+
+After deployment, copy your Railway URL (e.g., `https://your-app.up.railway.app`)
+
+---
+
+## Step 3: Vercel Frontend Deployment
+
+### 3.1 Import Project
+
+1. Go to [vercel.com](https://vercel.com) and click **Add New → Project**
+2. Import your GitHub repository
+3. Set **Root Directory**: `frontend`
+4. Framework Preset: **Next.js** (auto-detected)
+
+### 3.2 Add Environment Variables
+
+Add these in Vercel's **Environment Variables** section:
+
+```env
+# Backend API
+NEXT_PUBLIC_GRAPHQL_URL=https://your-app.up.railway.app/graphql
+NEXT_PUBLIC_API_URL=https://your-app.up.railway.app
+
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://[PROJECT-REF].supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+```
+
+### 3.3 Deploy
+
+Click **Deploy** and wait for the build to complete.
+
+### 3.4 Update Supabase Redirect URLs
+
+After Vercel assigns your domain, go back to **Supabase → Authentication → URL Configuration** and update:
+
+- Site URL: `https://your-project.vercel.app`
+- Redirect URLs: Add `https://your-project.vercel.app/auth/callback`
+
+---
+
+## Environment Variables Reference
+
+### Backend Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | ✅ | PostgreSQL connection string |
+| `SUPABASE_URL` | ✅ | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Supabase service role secret key |
+| `PORT` | ❌ | Server port (default: 8000) |
+| `NODE_ENV` | ✅ | Set to `production` |
+| `FRONTEND_URL` | ✅ | Frontend URL for CORS |
+
+### Frontend Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_GRAPHQL_URL` | ✅ | Backend GraphQL endpoint |
+| `NEXT_PUBLIC_API_URL` | ✅ | Backend API for file uploads |
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase public anon key |
+
+---
+
+## Post-Deployment Checklist
+
+- [ ] Backend health check: `GET /` returns `{"message": "Hello, Threads App Backend!"}`
+- [ ] GraphQL endpoint accessible: `POST /graphql`
+- [ ] Frontend loads without errors
+- [ ] User registration works (check email)
+- [ ] Login/logout works
+- [ ] Post creation works
+- [ ] Image uploads work
+
+---
+
+## Troubleshooting
+
+### "CORS Error"
+- Ensure `FRONTEND_URL` in backend matches your Vercel domain exactly
+- Check if both use HTTPS
+
+### "Database connection failed"
+- Verify `DATABASE_URL` is correct
+- Check Supabase is not paused (free tier pauses after inactivity)
+
+### "Auth not working"
+- Verify Supabase redirect URLs match your deployed frontend
+- Check `NEXT_PUBLIC_SUPABASE_*` variables are set correctly
+
+### "Prisma client not generated"
+- Ensure build command includes `npx prisma generate`
+- Check if `node_modules/.prisma` exists
+
+---
+
+## Custom Domain (Optional)
+
+### Railway
+1. Go to **Settings → Domains**
+2. Add your custom domain
+3. Configure DNS (CNAME to Railway)
+
+### Vercel
+1. Go to **Settings → Domains**
+2. Add your custom domain
+3. Configure DNS (follow Vercel instructions)
+
+---
 
 ## Monitoring Recommendations
 
-- **Logging**: Pino or Winston
-- **Metrics**: Prometheus + Grafana
-- **Error Tracking**: Sentry
-- **Uptime**: UptimeRobot or Pingdom
+| Service | Purpose |
+|---------|---------|
+| [Sentry](https://sentry.io) | Error tracking |
+| [Axiom](https://axiom.co) | Logging |
+| [UptimeRobot](https://uptimerobot.com) | Uptime monitoring |
+| Railway Metrics | Built-in CPU/Memory monitoring |

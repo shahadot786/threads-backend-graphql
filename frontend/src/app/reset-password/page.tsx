@@ -1,24 +1,18 @@
 "use client";
 
 import React, { useState, Suspense } from "react";
-import { useMutation } from "@apollo/client/react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ThreadsLogo } from "@/components/ui/Logo";
-import { RESET_PASSWORD_MUTATION } from "@/graphql/mutations/auth";
+import { supabase } from "@/lib/supabase";
 
 function ResetPasswordForm() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams.get("token");
-
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [error, setError] = useState("");
-
-  const [resetPasswordMutation] = useMutation(RESET_PASSWORD_MUTATION);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,18 +20,19 @@ function ResetPasswordForm() {
       setError("Passwords do not match");
       return;
     }
-    if (!token) {
-      setError("Reset token is missing");
-      return;
-    }
 
     setStatus("loading");
     setError("");
 
     try {
-      await resetPasswordMutation({
-        variables: { token, newPassword: password },
+      // Supabase handles the recovery session automatically 
+      // when user clicks the link and is redirected to this page.
+      const { error: authError } = await supabase.auth.updateUser({
+        password: password,
       });
+
+      if (authError) throw authError;
+
       setStatus("success");
     } catch (err: any) {
       setError(err.message || "Failed to reset password");

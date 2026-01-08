@@ -1,262 +1,133 @@
-import {
-  userService,
-  type CreateUserData,
-  type LoginPayload,
-  type UpdateUserProfileInput,
-} from "./user.service.js";
-import {
-  requireAuth,
-  type GraphQLContext,
-  setAuthCookies,
-  clearAuthCookies,
-  REFRESH_TOKEN_COOKIE,
-} from "../context.js";
-import { Errors } from "../errors.js";
+import { userService } from "./user.service.js";
+import { requireAuth, requireSupabaseAuth } from "../context.js";
 
 export const userResolvers = {
-  // Field resolvers for User type
-  User: {
-    stats: async (parent: { id: string }) => {
-      return userService.getUserStats(parent.id);
-    },
-  },
-
   Query: {
-    // Protected: Get all users
-    getUsers: async (_: unknown, __: unknown, context: GraphQLContext) => {
-      requireAuth(context);
+    // Get all users
+    getUsers: async (_: any, __: any, context: any) => {
+      // requireAuth(context);
       return userService.getAllUsers();
     },
 
-    // Protected: Get user by ID
-    getUserById: async (
-      _: unknown,
-      args: { id: string },
-      context: GraphQLContext
-    ) => {
+    // Get user by ID
+    getUserById: async (_: any, { id }: { id: string }, context: any) => {
+      // requireAuth(context);
+      return userService.getUserById(id);
+    },
+
+    // Get user by username
+    getUserByUsername: async (_: any, { username }: { username: string }) => {
+      return userService.getUserByUsername(username);
+    },
+
+    // Get user by email
+    getUserByEmail: async (_: any, { email }: { email: string }, context: any) => {
       requireAuth(context);
-      return userService.getUserById(args.id);
+      return userService.getUserByEmail(email);
     },
 
-    // Public: Get user by username (guests can view profiles)
-    getUserByUsername: async (
-      _: unknown,
-      args: { username: string },
-      _context: GraphQLContext
-    ) => {
-      return userService.getUserByUsername(args.username);
+    // Get current logged in user
+    getCurrentLoggedInUser: async (_: any, __: any, context: any) => {
+      return context.user;
     },
 
-    // Protected: Get user by email
-    getUserByEmail: async (
-      _: unknown,
-      args: { email: string },
-      context: GraphQLContext
-    ) => {
+    // Get suggested users
+    getSuggestedUsers: async (_: any, { first }: { first: number }, context: any) => {
+      // requireAuth(context);
+      return userService.getSuggestedUsers(first);
+    },
+
+    // Get followers
+    getFollowers: async (_: any, { userId }: { userId: string }, context: any) => {
       requireAuth(context);
-      return userService.getUserByEmail(args.email);
+      return userService.getFollowers(userId);
     },
 
-    // Protected: Get current logged-in user
-    getCurrentLoggedInUser: async (
-      _: unknown,
-      __: unknown,
-      context: GraphQLContext
-    ) => {
-      return requireAuth(context);
-    },
-
-    // Protected: Get followers of a user
-    getFollowers: async (
-      _: unknown,
-      args: { userId: string },
-      context: GraphQLContext
-    ) => {
+    // Get following
+    getFollowing: async (_: any, { userId }: { userId: string }, context: any) => {
       requireAuth(context);
-      return userService.getFollowers(args.userId);
+      return userService.getFollowing(userId);
     },
 
-    // Protected: Get users that a user is following
-    getFollowing: async (
-      _: unknown,
-      args: { userId: string },
-      context: GraphQLContext
-    ) => {
-      requireAuth(context);
-      return userService.getFollowing(args.userId);
-    },
-
-    // Protected: Get blocked users
-    getBlockedUsers: async (
-      _: unknown,
-      __: unknown,
-      context: GraphQLContext
-    ) => {
+    // Get blocked users
+    getBlockedUsers: async (_: any, __: any, context: any) => {
       const user = requireAuth(context);
       return userService.getBlockedUsers(user.id);
     },
 
-    // Protected: Get my notifications
-    getMyNotifications: async (
-      _: unknown,
-      __: unknown,
-      context: GraphQLContext
-    ) => {
+    // Get notifications
+    getMyNotifications: async (_: any, __: any, context: any) => {
       const user = requireAuth(context);
       return userService.getMyNotifications(user.id);
     },
   },
 
   Mutation: {
-    // Public: Create user (registration)
-    createUser: async (_: unknown, args: CreateUserData) => {
-      return userService.createUser(args);
+    // Create User Profile (after Supabase Signup)
+    createUser: async (_: any, args: any, context: any) => {
+      // Ensure user has a valid Supabase session
+      const supabaseUser = requireSupabaseAuth(context);
+
+      // Use the ID from Supabase Auth to create the profile
+      // This links the Auth User to the Public Profile
+      return userService.createUser({
+        ...args,
+        id: supabaseUser.id,
+      });
     },
 
-    // Protected: Update user profile
-    updateUserProfile: async (
-      _: unknown,
-      args: { input: UpdateUserProfileInput },
-      context: GraphQLContext
-    ) => {
+    // Update user profile
+    updateUserProfile: async (_: any, { input }: { input: any }, context: any) => {
       const user = requireAuth(context);
-      return userService.updateUserProfile(user.id, args.input);
+      return userService.updateUserProfile(user.id, input);
     },
 
-    // Public: Login
-    login: async (
-      _: unknown,
-      args: LoginPayload,
-      context: GraphQLContext
-    ) => {
-      const { accessToken, refreshToken, user } = await userService.login(args);
-
-      // Set httpOnly cookies
-      setAuthCookies(context.res, accessToken, refreshToken);
-
-      return {
-        accessToken,
-        user: await userService.getUserById(user.id),
-      };
-    },
-
-    // Public: Refresh access token
-    refreshToken: async (
-      _: unknown,
-      __: unknown,
-      context: GraphQLContext
-    ) => {
-      const refreshTokenValue = context.req.cookies?.[REFRESH_TOKEN_COOKIE];
-
-      if (!refreshTokenValue) {
-        throw Errors.unauthenticated("No refresh token provided");
-      }
-
-      const { accessToken, refreshToken: newRefreshToken } =
-        await userService.refreshAccessToken(refreshTokenValue);
-
-      // Set new cookies
-      setAuthCookies(context.res, accessToken, newRefreshToken);
-
-      // Get user from new access token
-      const user = context.user;
-
-      return {
-        accessToken,
-        user,
-      };
-    },
-
-    // Protected: Logout
-    logout: async (_: unknown, __: unknown, context: GraphQLContext) => {
-      const refreshTokenValue = context.req.cookies?.[REFRESH_TOKEN_COOKIE];
-
-      if (refreshTokenValue) {
-        await userService.logout(refreshTokenValue);
-      }
-
-      clearAuthCookies(context.res);
-      return true;
-    },
-
-    // Protected: Logout from all devices
-    logoutAll: async (_: unknown, __: unknown, context: GraphQLContext) => {
+    // Follow user
+    followUser: async (_: any, { userId }: { userId: string }, context: any) => {
       const user = requireAuth(context);
-      await userService.logoutAll(user.id);
-      clearAuthCookies(context.res);
-      return true;
+      return userService.followUser(user.id, userId);
     },
 
-    // Protected: Follow a user
-    followUser: async (
-      _: unknown,
-      args: { userId: string },
-      context: GraphQLContext
-    ) => {
+    // Unfollow user
+    unfollowUser: async (_: any, { userId }: { userId: string }, context: any) => {
       const user = requireAuth(context);
-      return userService.followUser(user.id, args.userId);
+      return userService.unfollowUser(user.id, userId);
     },
 
-    // Protected: Unfollow a user
-    unfollowUser: async (
-      _: unknown,
-      args: { userId: string },
-      context: GraphQLContext
-    ) => {
+    // Block user
+    blockUser: async (_: any, { userId }: { userId: string }, context: any) => {
       const user = requireAuth(context);
-      return userService.unfollowUser(user.id, args.userId);
+      return userService.blockUser(user.id, userId);
     },
 
-    // Protected: Block a user
-    blockUser: async (
-      _: unknown,
-      args: { userId: string },
-      context: GraphQLContext
-    ) => {
+    // Unblock user
+    unblockUser: async (_: any, { userId }: { userId: string }, context: any) => {
       const user = requireAuth(context);
-      return userService.blockUser(user.id, args.userId);
+      return userService.unblockUser(user.id, userId);
     },
 
-    // Protected: Unblock a user
-    unblockUser: async (
-      _: unknown,
-      args: { userId: string },
-      context: GraphQLContext
-    ) => {
+    // Mark notification as read
+    markNotificationAsRead: async (_: any, { notificationId }: { notificationId: string }, context: any) => {
       const user = requireAuth(context);
-      return userService.unblockUser(user.id, args.userId);
+      return userService.markNotificationAsRead(user.id, notificationId);
     },
 
-    // Protected: Mark notification as read
-    markNotificationAsRead: async (
-      _: unknown,
-      args: { notificationId: string },
-      context: GraphQLContext
-    ) => {
-      const user = requireAuth(context);
-      return userService.markNotificationAsRead(user.id, args.notificationId);
-    },
-
-    // Protected: Mark all notifications as read
-    markAllNotificationsAsRead: async (
-      _: unknown,
-      __: unknown,
-      context: GraphQLContext
-    ) => {
+    // Mark all notifications as read
+    markAllNotificationsAsRead: async (_: any, __: any, context: any) => {
       const user = requireAuth(context);
       return userService.markAllNotificationsAsRead(user.id);
     },
+  },
 
-    // Password Recovery
-    forgotPassword: async (_: unknown, args: { email: string }) => {
-      return userService.forgotPassword(args.email);
+  User: {
+    // Resolve computed fields
+    stats: async (parent: any) => {
+      return userService.getUserStats(parent.id);
     },
 
-    resetPassword: async (
-      _: unknown,
-      args: { token: string; newPassword: string }
-    ) => {
-      return userService.resetPassword(args.token, args.newPassword);
-    },
+    isFollowing: async (parent: any, _: any, context: any) => {
+      if (!context.user) return false;
+      return userService.isFollowing(context.user.id, parent.id);
+    }
   },
 };

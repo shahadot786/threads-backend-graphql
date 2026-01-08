@@ -61,3 +61,15 @@ export const UNBOOKMARK_POST_MUTATION = gql`
     unbookmarkPost(postId: $postId)
   }
 `;
+
+export const REPOST_POST_MUTATION = gql`
+  mutation RepostPost($postId: ID!) {
+    repostPost(postId: $postId)
+  }
+`;
+
+export const UNREPOST_POST_MUTATION = gql`
+  mutation UnrepostPost($postId: ID!) {
+    unrepostPost(postId: $postId)
+  }
+`;
