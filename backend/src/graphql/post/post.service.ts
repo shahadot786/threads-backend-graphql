@@ -1,5 +1,6 @@
 import { prisma } from "../../lib/prisma.js";
 import { Errors } from "../errors.js";
+import { emitToAll, emitToUser } from "../../lib/socket.js";
 import type { PostVisibility, MediaType, Prisma } from "../../../generated/prisma/client.js";
 
 // =====================
@@ -194,6 +195,9 @@ export const postService = {
         }
       }
 
+      // Emit real-time event for new post
+      emitToAll("post:created", { post });
+
       return post;
     });
   },
@@ -236,10 +240,22 @@ export const postService = {
       });
     }
 
-    return prisma.post.findUnique({
+    const fullReply = await prisma.post.findUnique({
       where: { id: reply.id },
       include: { author: true, parentPost: true, media: true },
     });
+
+    // Emit real-time event for reply
+    emitToAll("post:replied", { parentPostId, reply: fullReply });
+
+    // Notify parent author
+    if (parentPost.authorId !== authorId) {
+      emitToUser(parentPost.authorId, "notification:new", {
+        notification: { type: "REPLY", entityId: reply.id, actorId: authorId },
+      });
+    }
+
+    return fullReply;
   },
 
   // =====================
@@ -312,17 +328,17 @@ export const postService = {
 
     // Check if blocked
     if (currentUserId) {
-        const blocks = await prisma.block.findFirst({
-            where: {
-                OR: [
-                    { blockerId: post.authorId, blockedId: currentUserId },
-                    { blockerId: currentUserId, blockedId: post.authorId }
-                ]
-            }
-        });
-        if (blocks) {
-             throw Errors.forbidden("Post not available");
+      const blocks = await prisma.block.findFirst({
+        where: {
+          OR: [
+            { blockerId: post.authorId, blockedId: currentUserId },
+            { blockerId: currentUserId, blockedId: post.authorId }
+          ]
         }
+      });
+      if (blocks) {
+        throw Errors.forbidden("Post not available");
+      }
     }
 
     // Check visibility for private posts
@@ -438,17 +454,17 @@ export const postService = {
 
     // Security check: If viewing another user's profile, check if blocked
     if (currentUserId && userId !== currentUserId) {
-        const blocks = await prisma.block.findFirst({
-            where: {
-                OR: [
-                    { blockerId: userId, blockedId: currentUserId }, // They blocked me
-                    { blockerId: currentUserId, blockedId: userId }  // I blocked them
-                ]
-            }
-        });
-        if (blocks) {
-             return { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
+      const blocks = await prisma.block.findFirst({
+        where: {
+          OR: [
+            { blockerId: userId, blockedId: currentUserId }, // They blocked me
+            { blockerId: currentUserId, blockedId: userId }  // I blocked them
+          ]
         }
+      });
+      if (blocks) {
+        return { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
+      }
     }
 
     let cursorDate: Date | undefined;
@@ -605,7 +621,7 @@ export const postService = {
         },
       };
     }
-    
+
     // ---------------------------------------------------------
     // CASE 4: MEDIA (Posts with images/videos)
     // ---------------------------------------------------------
@@ -647,8 +663,8 @@ export const postService = {
     if (filter === "BOOKMARKS") {
       // Security check: Only allow viewing own bookmarks
       if (userId !== currentUserId) {
-         // Return empty if trying to view someone else's bookmarks
-         return { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
+        // Return empty if trying to view someone else's bookmarks
+        return { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
       }
 
       const bookmarksWhereClause: Prisma.BookmarkWhereInput = {
@@ -684,7 +700,7 @@ export const postService = {
         },
       };
     }
-    
+
     // Fallback empty return if unknown filter
     return { edges: [], pageInfo: { hasNextPage: false, endCursor: null } };
   },
@@ -1091,6 +1107,17 @@ export const postService = {
       });
     }
 
+    // Emit real-time event for like
+    const likesCount = await prisma.postLike.count({ where: { postId } });
+    emitToAll("post:liked", { postId, likesCount, userId });
+
+    // Notify post author via socket
+    if (post.authorId !== userId) {
+      emitToUser(post.authorId, "notification:new", {
+        notification: { type: "LIKE", entityId: postId, actorId: userId },
+      });
+    }
+
     return true;
   },
 
@@ -1109,6 +1136,10 @@ export const postService = {
     await prisma.postLike.delete({
       where: { userId_postId: { userId, postId } },
     });
+
+    // Emit real-time event for unlike
+    const likesCount = await prisma.postLike.count({ where: { postId } });
+    emitToAll("post:unliked", { postId, likesCount, userId });
 
     return true;
   },

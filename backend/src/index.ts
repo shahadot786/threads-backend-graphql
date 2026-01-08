@@ -2,9 +2,11 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { createServer } from "http";
 import { expressMiddleware } from "@as-integrations/express5";
 import { createGraphqlServer } from "./graphql/server.js";
 import { createContext } from "./graphql/context.js";
+import { initializeSocket } from "./lib/socket.js";
 
 import multer from "multer";
 import path from "path";
@@ -18,6 +20,12 @@ const __dirname = path.dirname(__filename);
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 8000;
+
+  // Create HTTP server for Socket.IO integration
+  const httpServer = createServer(app);
+
+  // Initialize Socket.IO
+  initializeSocket(httpServer);
 
   // Ensure uploads directory exists
   const uploadDir = path.join(__dirname, "../uploads");
@@ -76,22 +84,22 @@ async function startServer() {
       // Validate individual file sizes
       for (const file of files) {
         if (file.mimetype.startsWith("image/") && file.size > 2 * 1024 * 1024) {
-           return res.status(400).json({ error: `Image ${file.originalname} exceeds 2MB limit` });
+          return res.status(400).json({ error: `Image ${file.originalname} exceeds 2MB limit` });
         }
         if (file.mimetype.startsWith("video/") && file.size > 10 * 1024 * 1024) {
-           return res.status(400).json({ error: `Video ${file.originalname} exceeds 10MB limit` });
+          return res.status(400).json({ error: `Video ${file.originalname} exceeds 10MB limit` });
         }
-        
+
         const fileUrl = `${req.protocol}://${req.get("host")}/uploads/${file.filename}`;
         fileUrls.push(fileUrl);
       }
-      
+
       // Return single url if single file uploaded (for backward compatibility if needed) 
       // or standard format { urls: [] } or { url: ... } is tricky if client expects 1.
       // Current client ReportProblem uses .url. CreatePost will use .urls or .url
-      
+
       if (files.length === 1 && files[0]) {
-         return res.json({ url: fileUrls[0], urls: fileUrls, type: files[0].mimetype });
+        return res.json({ url: fileUrls[0], urls: fileUrls, type: files[0].mimetype });
       }
 
       res.json({ urls: fileUrls });
@@ -115,9 +123,11 @@ async function startServer() {
     })
   );
 
-  app.listen(PORT, () => {
+  // Use httpServer.listen instead of app.listen for Socket.IO
+  httpServer.listen(PORT, () => {
     if (process.env.NODE_ENV !== "production") {
       console.log(`Server is running on http://localhost:${PORT}`);
+      console.log(`Socket.IO enabled`);
     }
   });
 }

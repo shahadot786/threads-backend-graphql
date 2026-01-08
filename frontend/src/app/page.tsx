@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { useQuery } from "@apollo/client/react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
@@ -7,6 +8,8 @@ import { PostCard } from "@/components/post/PostCard";
 import { PostSkeleton } from "@/components/ui/Loading";
 import { useAuthStore } from "@/stores/auth";
 import { GET_PUBLIC_FEED, GET_HOME_FEED } from "@/graphql/queries/post";
+import { useSocketEvent } from "@/hooks/useSocket";
+import { apolloClient } from "@/lib/apollo-client";
 import type { PostConnection } from "@/types";
 
 interface TrendingPostsData {
@@ -25,6 +28,7 @@ export default function HomePage() {
     data,
     loading: postsLoading,
     fetchMore,
+    refetch,
   } = useQuery<any>(query, {
     variables: { first: 20 },
     notifyOnNetworkStatusChange: true,
@@ -34,6 +38,29 @@ export default function HomePage() {
   const response = data?.[queryField];
   const posts = response?.edges || [];
   const pageInfo = response?.pageInfo;
+
+  // Handle new post event - refetch to get latest posts
+  const handleNewPost = useCallback(() => {
+    refetch();
+  }, [refetch]);
+
+  // Handle like/unlike events - update cache optimistically
+  const handleLikeUpdate = useCallback(
+    (data: { postId: string; likesCount: number; userId: string }) => {
+      apolloClient.cache.modify({
+        id: apolloClient.cache.identify({ __typename: "Post", id: data.postId }),
+        fields: {
+          likesCount: () => data.likesCount,
+        },
+      });
+    },
+    []
+  );
+
+  // Subscribe to socket events
+  useSocketEvent("post:created", handleNewPost);
+  useSocketEvent("post:liked", handleLikeUpdate);
+  useSocketEvent("post:unliked", handleLikeUpdate);
 
   const handleLoadMore = () => {
     if (!pageInfo?.hasNextPage || postsLoading) return;
