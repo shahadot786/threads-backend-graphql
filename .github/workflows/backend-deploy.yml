@@ -1,0 +1,26 @@
+name: Deploy Backend to Railway
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'backend/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Trigger Railway Deployment
+        run: |
+          curl -X POST "${{ secrets.RAILWAY_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"branch": "master"}'
+        env:
+          RAILWAY_WEBHOOK_URL: ${{ secrets.RAILWAY_WEBHOOK_URL }}
+
+      - name: Deployment triggered
+        run: echo "🚀 Backend deployment triggered on Railway"

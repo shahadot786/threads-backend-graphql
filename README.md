@@ -43,7 +43,15 @@ cd threads-clone
 docker compose up -d
 ```
 
-### 3. Start Backend
+### 3. Set Up Supabase
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Go to **Settings → API** and copy:
+   - Project URL → `SUPABASE_URL`
+   - `anon` public key → `SUPABASE_ANON_KEY`
+   - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY`
+
+### 4. Start Backend
 
 ```bash
 cd backend
@@ -54,10 +62,11 @@ yarn dev
 ```
 → GraphQL API: http://localhost:8000/graphql
 
-### 4. Start Frontend
+### 5. Start Frontend
 
 ```bash
 cd frontend
+cp .env.example .env.local  # Configure environment
 yarn install
 yarn dev
 ```
@@ -85,11 +94,12 @@ yarn dev
 - **@Mentions** - Mention users with autocomplete suggestions
 - **Trending Posts** - Discover popular content
 
-### Authentication ✅
-- **JWT Authentication** with secure httpOnly cookies
-- **Refresh Token Rotation** for enhanced security
-- **Password Reset** via email
-- **Protected Routes** on both frontend and backend
+### Authentication ✅ (Supabase)
+- **Supabase Auth** - Email/password with magic links
+- **Email Verification** - Confirm email before login
+- **Password Reset** - Secure reset via email
+- **Protected Routes** - Frontend and backend guards
+- **Session Management** - Secure cookie-based sessions
 
 ### UI/UX ✅
 - **Dark Mode** - Beautiful dark theme by default
@@ -104,10 +114,11 @@ yarn dev
 |-------|------------|
 | **Frontend** | Next.js 16, React 19, Tailwind CSS 4, Apollo Client |
 | **Backend** | Apollo Server 5, Express 5, TypeScript 5.9 |
-| **Database** | PostgreSQL 16, Prisma 7 ORM |
-| **Auth** | JWT, httpOnly Cookies, Refresh Tokens |
-| **Storage** | Local file storage with CDN-ready structure |
-| **DevOps** | Docker, Docker Compose |
+| **Database** | PostgreSQL 16 (Supabase), Prisma 7 ORM |
+| **Auth** | Supabase Auth (email + password) |
+| **Real-time** | Socket.io for live updates |
+| **Storage** | Local file storage / CDN-ready |
+| **DevOps** | Docker, Railway, Vercel |
 
 ## 📚 Documentation
 
