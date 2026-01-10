@@ -120,11 +120,16 @@ yarn dev
 | **Storage** | Local file storage / CDN-ready |
 | **DevOps** | Docker, Railway, Vercel |
 
+## 🚀 Live Demo
+
+- **Frontend (Web App):** [threads-clone-three-nu.vercel.app](https://threads-clone-three-nu.vercel.app/)
+- **Backend (GraphQL API):** [threads-clone-production-441a.up.railway.app/graphql](https://threads-clone-production-441a.up.railway.app/graphql)
+
 ## 📚 Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) - System design and data flow
-- [Deployment](docs/DEPLOYMENT.md) - Production deployment guide
-- [Contributing](docs/CONTRIBUTING.md) - How to contribute
+- [Architecture Guide](docs/ARCHITECTURE.md) - System design and data flow
+- [Deployment Guide](docs/DEPLOYMENT.md) - Production deployment guide
+- [Contributing Guide](docs/CONTRIBUTING.md) - How to contribute
 - [Task Roadmap](TASK.md) - What's done and what's next
 
 ## 📝 License

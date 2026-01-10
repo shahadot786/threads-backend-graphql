@@ -42,9 +42,9 @@ Navigate to **Settings → Database** and copy:
 
 Navigate to **Authentication → URL Configuration**:
 
-1. Set **Site URL**: `https://your-frontend-domain.vercel.app`
+1. Set **Site URL**: `https://threads-clone-three-nu.vercel.app`
 2. Add **Redirect URLs**:
-   - `https://your-frontend-domain.vercel.app/auth/callback`
+   - `https://threads-clone-three-nu.vercel.app/auth/callback`
    - `http://localhost:3000/auth/callback` (for development)
 
 ### 1.5 Configure Email Templates (Optional)
@@ -89,7 +89,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 # Server
 PORT=8000
 NODE_ENV=production
-FRONTEND_URL=https://your-frontend.vercel.app
+FRONTEND_URL=https://threads-clone-three-nu.vercel.app
 ```
 
 ### 2.4 Run Database Migrations
@@ -109,7 +109,11 @@ npx prisma migrate deploy
 
 ### 2.5 Get Backend URL
 
-After deployment, copy your Railway URL (e.g., `https://your-app.up.railway.app`)
+After deployment, follow these steps to get your public API URL:
+1. Click on your backend service in Railway.
+2. Go to **Settings** -> **Networking**.
+3. Copy the URL under **Domains** (e.g., `https://threads-clone-production-441a.up.railway.app`).
+- If no domain exists, click **"Generate Domain"**.
 
 ---
 
@@ -130,8 +134,8 @@ Add these in Vercel's **Environment Variables** section:
 
 ```env
 # Backend API
-NEXT_PUBLIC_GRAPHQL_URL=https://your-app.up.railway.app/graphql
-NEXT_PUBLIC_API_URL=https://your-app.up.railway.app
+NEXT_PUBLIC_GRAPHQL_URL=https://threads-clone-production-441a.up.railway.app/graphql
+NEXT_PUBLIC_API_URL=https://threads-clone-production-441a.up.railway.app
 
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://[PROJECT-REF].supabase.co
@@ -146,8 +150,8 @@ Click **Deploy** and wait for the build to complete.
 
 After Vercel assigns your domain, go back to **Supabase → Authentication → URL Configuration** and update:
 
-- Site URL: `https://your-project.vercel.app`
-- Redirect URLs: Add `https://your-project.vercel.app/auth/callback`
+- Site URL: `https://threads-clone-three-nu.vercel.app`
+- Redirect URLs: Add `https://threads-clone-three-nu.vercel.app/auth/callback`
 
 ---
 
