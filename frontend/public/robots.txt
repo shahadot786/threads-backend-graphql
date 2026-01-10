@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://threads-clone-three-nu.vercel.app/sitemap.xml
+
+# Disallow admin/api routes
+Disallow: /api/
+Disallow: /auth/callback

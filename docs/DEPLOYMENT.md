@@ -1,11 +1,11 @@
 # Deployment Guide
 
-Deploy the Threads App to production using Supabase (database + auth), Railway (backend), and Vercel (frontend).
+Deploy the Threads App to production using Supabase (database + auth), Render (backend), and Vercel (frontend).
 
 ## Prerequisites
 
 - [Supabase](https://supabase.com) account (free tier works)
-- [Railway](https://railway.app) account
+- [Render](https://render.com) account
 - [Vercel](https://vercel.com) account
 - GitHub repository with your code
 
@@ -55,28 +55,25 @@ Navigate to **Authentication → Email Templates** to customize:
 
 ---
 
-## Step 2: Railway Backend Deployment
+## Step 2: Render Backend Deployment
 
-### 2.1 Create Railway Project
+### 2.1 Create Render Web Service
 
-1. Go to [railway.app](https://railway.app) and create a new project
-2. Select **Deploy from GitHub repo**
-3. Choose your repository
-4. Set **Root Directory**: `backend`
-
-### 2.2 Configure Build Settings
-
-In your Railway project settings:
+1. Go to [render.com](https://render.com) and create a new **Web Service**
+2. Connect your GitHub repository
+3. Configure the service:
 
 | Setting | Value |
 |---------|-------|
-| Build Command | `yarn install && npx prisma generate` |
+| Name | `threads-clone-backend` |
+| Root Directory | `backend` |
+| Runtime | Node |
+| Build Command | `yarn install && npx prisma generate && npx prisma migrate deploy && yarn build` |
 | Start Command | `yarn start` |
-| Watch Paths | `/backend/**` |
 
-### 2.3 Add Environment Variables
+### 2.2 Add Environment Variables
 
-Add these variables in Railway's **Variables** tab:
+In your Render service **Environment** tab, add:
 
 ```env
 # Database (from Supabase)
@@ -92,28 +89,21 @@ NODE_ENV=production
 FRONTEND_URL=https://threads-clone-three-nu.vercel.app
 ```
 
-### 2.4 Run Database Migrations
+### 2.3 Deploy
 
-It is recommended to run migrations during the **build phase** in Railway.
-
-Update your **Build Command** in Railway:
-`yarn install && npx prisma generate && npx prisma migrate deploy && yarn build`
-
-Alternatively, you can run them manually via the Railway CLI:
-```bash
-npx prisma migrate deploy
-```
+Click **Create Web Service** to start the initial deployment. Render will:
+1. Clone your repository
+2. Run the build command
+3. Start your server
 
 > [!TIP]
-> Railway automatically redeploys your service whenever you push changes to your linked GitHub branch.
+> Render automatically redeploys when you push to your connected branch, or you can set up a Deploy Hook for GitHub Actions.
 
-### 2.5 Get Backend URL
+### 2.4 Get Backend URL
 
-After deployment, follow these steps to get your public API URL:
-1. Click on your backend service in Railway.
-2. Go to **Settings** -> **Networking**.
-3. Copy the URL under **Domains** (e.g., `https://threads-clone-production-441a.up.railway.app`).
-- If no domain exists, click **"Generate Domain"**.
+After deployment:
+1. Go to your service dashboard in Render
+2. Copy the URL (e.g., `https://threads-clone-6i41.onrender.com`)
 
 ---
 
@@ -134,8 +124,8 @@ Add these in Vercel's **Environment Variables** section:
 
 ```env
 # Backend API
-NEXT_PUBLIC_GRAPHQL_URL=https://threads-clone-production-441a.up.railway.app/graphql
-NEXT_PUBLIC_API_URL=https://threads-clone-production-441a.up.railway.app
+NEXT_PUBLIC_GRAPHQL_URL=https://threads-clone-6i41.onrender.com/graphql
+NEXT_PUBLIC_API_URL=https://threads-clone-6i41.onrender.com
 
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=https://[PROJECT-REF].supabase.co
@@ -213,10 +203,10 @@ After Vercel assigns your domain, go back to **Supabase → Authentication → U
 
 ## Custom Domain (Optional)
 
-### Railway
-1. Go to **Settings → Domains**
+### Render
+1. Go to **Settings → Custom Domains**
 2. Add your custom domain
-3. Configure DNS (CNAME to Railway)
+3. Configure DNS (CNAME to Render)
 
 ### Vercel
 1. Go to **Settings → Domains**
@@ -232,4 +222,4 @@ After Vercel assigns your domain, go back to **Supabase → Authentication → U
 | [Sentry](https://sentry.io) | Error tracking |
 | [Axiom](https://axiom.co) | Logging |
 | [UptimeRobot](https://uptimerobot.com) | Uptime monitoring |
-| Railway Metrics | Built-in CPU/Memory monitoring |
+| Render Metrics | Built-in CPU/Memory monitoring |

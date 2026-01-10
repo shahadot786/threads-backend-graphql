@@ -93,6 +93,28 @@ export function LoginForm({ onSuccess }: { onSuccess?: () => void }) {
           </button>
         </div>
       </div>
+
+      {/* Footer Branding */}
+      <div className="mt-12 text-center text-xs text-muted-foreground">
+        <span>Built by </span>
+        <a
+          href="https://github.com/shahadot786"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-foreground/80 hover:text-foreground hover:underline transition-colors"
+        >
+          Shahadot Hossain
+        </a>
+        <span> • </span>
+        <a
+          href="https://github.com/shahadot786/threads-clone"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-foreground/80 hover:text-foreground hover:underline transition-colors"
+        >
+          GitHub
+        </a>
+      </div>
     </div>
   );
 }
