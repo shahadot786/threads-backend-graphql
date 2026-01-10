@@ -1,0 +1,16 @@
+{
+  "name": "Threads Clone",
+  "short_name": "Threads",
+  "description": "A modern social media platform for sharing thoughts and connecting with friends",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#101010",
+  "theme_color": "#101010",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

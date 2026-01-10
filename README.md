@@ -118,12 +118,12 @@ yarn dev
 | **Auth** | Supabase Auth (email + password) |
 | **Real-time** | Socket.io for live updates |
 | **Storage** | Local file storage / CDN-ready |
-| **DevOps** | Docker, Railway, Vercel |
+| **DevOps** | Docker, Render, Vercel |
 
 ## 🚀 Live Demo
 
 - **Frontend (Web App):** [threads-clone-three-nu.vercel.app](https://threads-clone-three-nu.vercel.app/)
-- **Backend (GraphQL API):** [threads-clone-production-441a.up.railway.app/graphql](https://threads-clone-production-441a.up.railway.app/graphql)
+- **Backend (GraphQL API):** [threads-clone-6i41.onrender.com/graphql](https://threads-clone-6i41.onrender.com/graphql)
 
 ## 📚 Documentation
 

@@ -5,7 +5,7 @@ import { useTheme } from "next-themes";
 import { useAuthStore } from "@/stores/auth";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Sun, Moon, LogOut, AlertCircle, ChevronRight } from "lucide-react";
+import { Sun, Moon, LogOut, AlertCircle, ChevronRight, Github } from "lucide-react";
 import { apolloClient } from "@/lib/apollo-client";
 import { useUIStore } from "@/stores/ui";
 
@@ -61,6 +61,19 @@ export function SettingsMenu({
         useUIStore.getState().openReportProblemModal();
         if (onClose) onClose();
       },
+    },
+    {
+      label: "About",
+      icon: Github,
+      onClick: () => {
+        window.open("https://github.com/shahadot786/threads-clone", "_blank");
+        if (onClose) onClose();
+      },
+      rightElement: (
+        <span className="text-xs font-medium text-muted-foreground">
+          v1.0.0
+        </span>
+      ),
     },
     ...(isAuthenticated ? [{
       label: "Log out",
