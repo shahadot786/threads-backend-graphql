@@ -261,7 +261,10 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
 
         const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/upload`, {
           method: "POST",
-          body: formData
+          body: formData,
+          headers: {
+            "apollo-require-preflight": "true",
+          },
         });
 
         if (!uploadRes.ok) throw new Error("File upload failed");
