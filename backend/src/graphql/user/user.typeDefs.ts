@@ -123,6 +123,7 @@ export const userTypeDefs = /* GraphQL */ `
 
     # Notifications
     getMyNotifications: [Notification!]!
+    getUnreadNotificationsCount: Int!
   }
 
   # =========================

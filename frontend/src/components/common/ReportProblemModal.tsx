@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Paperclip, X, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth";
 import { useUIStore } from "@/stores/ui";
+import { validateMediaFile } from "@/lib/utils";
 import { useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/Select";
@@ -43,6 +44,13 @@ export function ReportProblemModal({ isOpen, onClose }: ReportProblemModalProps)
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const { isValid, error } = validateMediaFile(file);
+
+      if (!isValid) {
+        showToast(error || "Invalid file");
+        return;
+      }
+
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
     }

@@ -60,6 +60,12 @@ export const userResolvers = {
       const user = requireAuth(context);
       return userService.getMyNotifications(user.id);
     },
+
+    // Get unread notifications count
+    getUnreadNotificationsCount: async (_: any, __: any, context: any) => {
+      const user = requireAuth(context);
+      return userService.getUnreadNotificationsCount(user.id);
+    },
   },
 
   Mutation: {

@@ -1,5 +1,4 @@
 // Main Component
-// Main Component
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useMutation, useLazyQuery } from "@apollo/client/react";
 import { useAuthStore } from "@/stores/auth";
@@ -17,6 +16,7 @@ import { QuoteGenerator } from "./QuoteGenerator";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { User } from "@/types";
 import { API_BASE_URL } from "@/lib/config";
+import { validateMediaFile } from "@/lib/utils";
 
 // Dynamic import for emoji picker to avoid SSR issues
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
@@ -205,24 +205,14 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
     }
 
     for (const file of files) {
-      if (file.type.startsWith("image/")) {
-        const type = file.type === "image/gif" ? "GIF" : "IMAGE";
-        if (file.size > 5 * 1024 * 1024 && type === "GIF") { // GIF specific check
-          tempError = `GIF ${file.name} exceeds 5MB limit.`;
-          continue;
-        } else if (file.size > 5 * 1024 * 1024 && type === "IMAGE") { // Increased image limit for safety
-          tempError = `Image ${file.name} exceeds 5MB limit.`;
-          continue;
-        }
+      const { isValid, error, type } = validateMediaFile(file);
 
-        newMedia.push({ file, preview: URL.createObjectURL(file), type });
-      } else if (file.type.startsWith("video/")) {
-        if (file.size > 20 * 1024 * 1024) { // Increased video limit
-          tempError = `Video ${file.name} exceeds 20MB limit.`;
-          continue;
-        }
-        newMedia.push({ file, preview: URL.createObjectURL(file), type: "VIDEO" });
+      if (!isValid) {
+        tempError = error;
+        continue;
       }
+
+      newMedia.push({ file, preview: URL.createObjectURL(file), type: type as "IMAGE" | "GIF" | "VIDEO" });
     }
 
     if (tempError) setError(tempError);

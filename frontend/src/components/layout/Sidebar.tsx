@@ -10,6 +10,9 @@ import { ThreadsLogo } from "@/components/ui/Logo";
 import { Home, Search, PlusSquare, Heart, User, Pin, Menu } from "lucide-react";
 import { SettingsMenu } from "./SettingsMenu";
 import { SavedPostsPanel } from "./SavedPostsPanel";
+import { useQuery } from "@apollo/client/react";
+import { GET_UNREAD_NOTIFICATIONS_COUNT } from "@/graphql/queries/user";
+import { useSocketEvent } from "@/hooks/useSocket";
 
 interface NavItemProps {
   href: string;
@@ -18,6 +21,7 @@ interface NavItemProps {
   requiresAuth?: boolean;
   className?: string;
   onClick?: (e: React.MouseEvent) => void;
+  count?: number;
 }
 
 function NavItem({
@@ -27,6 +31,7 @@ function NavItem({
   requiresAuth,
   className,
   onClick,
+  count = 0,
 }: NavItemProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const openLoginModal = useUIStore((state) => state.openLoginModal);
@@ -58,6 +63,12 @@ function NavItem({
           "transition-transform duration-300 group-active:scale-90"
         )}
       />
+
+      {count > 0 && (
+        <span className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white border-2 border-background animate-in zoom-in duration-300">
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
       {isActive && (
         <span className="absolute -left-0.5 w-1 h-6 bg-primary rounded-r-full hidden md:block" />
       )}
@@ -74,6 +85,28 @@ export function Sidebar() {
   const [showMenu, setShowMenu] = useState(false);
   const [showSavedPanel, setShowSavedPanel] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Fetch unread notification count
+  const { data, refetch: refetchUnreadCount } = useQuery<{ getUnreadNotificationsCount: number }>(GET_UNREAD_NOTIFICATIONS_COUNT, {
+    skip: !isAuthenticated,
+    pollInterval: 30000, // Fallback poll every 30s
+  });
+
+  const unreadCount = data?.getUnreadNotificationsCount || 0;
+
+  // Listen for new notifications
+  const handleNewNotification = React.useCallback(() => {
+    refetchUnreadCount();
+  }, [refetchUnreadCount]);
+
+  useSocketEvent("notification:new", handleNewNotification);
+
+  // Also refetch count when user profile might have changed or on mount
+  useEffect(() => {
+    if (isAuthenticated) {
+      refetchUnreadCount();
+    }
+  }, [isAuthenticated, refetchUnreadCount]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -141,6 +174,7 @@ export function Sidebar() {
             icon={Heart}
             isActive={pathname === "/activity"}
             requiresAuth
+            count={unreadCount}
           />
           <NavItem
             href={user ? `/@${user.username}` : "/login"}
@@ -217,6 +251,7 @@ export function Sidebar() {
           icon={Heart}
           isActive={pathname === "/activity"}
           requiresAuth
+          count={unreadCount}
         />
 
         <NavItem
