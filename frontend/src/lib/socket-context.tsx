@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { io, Socket } from "socket.io-client";
 import { useAuthStore } from "@/stores/auth";
 import { supabase } from "@/lib/supabase";
+import { API_BASE_URL } from "@/lib/config";
 
 interface SocketContextType {
     socket: Socket | null;
@@ -33,7 +34,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
         async function initSocket() {
             // Get API URL from env or default
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            const apiUrl = API_BASE_URL;
 
             // Get current session for token
             const { data: { session } } = await supabase.auth.getSession();

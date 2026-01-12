@@ -11,6 +11,7 @@ import { UPDATE_PROFILE_MUTATION } from "@/graphql/mutations/auth";
 import type { User } from "@/types";
 import { getDisplayName } from "@/lib/utils";
 import { Loader2, Upload } from "lucide-react";
+import { API_BASE_URL } from "@/lib/config";
 
 export function EditProfileModal() {
   const { user, updateUser } = useAuthStore();
@@ -69,12 +70,9 @@ export function EditProfileModal() {
     uploadFormData.append("files", file);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/upload`, {
+      const response = await fetch(`${API_BASE_URL}/api/upload`, {
         method: "POST",
         body: uploadFormData,
-        headers: {
-          "apollo-require-preflight": "true",
-        },
       });
 
       if (!response.ok) {

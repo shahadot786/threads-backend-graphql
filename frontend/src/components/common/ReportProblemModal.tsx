@@ -16,6 +16,7 @@ import { useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/Select";
 import { Textarea } from "../ui/Textarea";
+import { API_BASE_URL } from "@/lib/config";
 
 const SUBMIT_REPORT_MUTATION = gql`
   mutation SubmitReport($input: CreateReportInput!) {
@@ -71,12 +72,9 @@ export function ReportProblemModal({ isOpen, onClose }: ReportProblemModalProps)
         const formData = new FormData();
         formData.append("files", selectedFile);
 
-        const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/upload`, {
+        const uploadRes = await fetch(`${API_BASE_URL}/api/upload`, {
           method: "POST",
           body: formData,
-          headers: {
-            "apollo-require-preflight": "true",
-          },
         });
 
         if (!uploadRes.ok) throw new Error("File upload failed");

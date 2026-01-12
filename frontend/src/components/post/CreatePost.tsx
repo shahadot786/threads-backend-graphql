@@ -16,6 +16,7 @@ import { GifModal } from "./GifModal";
 import { QuoteGenerator } from "./QuoteGenerator";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { User } from "@/types";
+import { API_BASE_URL } from "@/lib/config";
 
 // Dynamic import for emoji picker to avoid SSR issues
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
@@ -259,12 +260,9 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
         const formData = new FormData();
         filesToUpload.forEach(m => formData.append("files", m.file!));
 
-        const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/upload`, {
+        const uploadRes = await fetch(`${API_BASE_URL}/api/upload`, {
           method: "POST",
           body: formData,
-          headers: {
-            "apollo-require-preflight": "true",
-          },
         });
 
         if (!uploadRes.ok) throw new Error("File upload failed");
