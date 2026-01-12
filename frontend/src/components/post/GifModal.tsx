@@ -8,6 +8,7 @@ import { X, Upload, Search, Image as ImageIcon } from "lucide-react";
 import { useQuery } from "@apollo/client/react";
 
 import { MOCK_GIFS, MockGif, GIFS_BY_CATEGORY, getRandomGifs, searchGifs } from "@/data/mockGifs";
+import { validateMediaFile, MEDIA_LIMITS } from "@/lib/utils";
 
 interface GifModalProps {
     isOpen: boolean;
@@ -56,11 +57,13 @@ export function GifModal({ isOpen, onClose, onSelect }: GifModalProps) {
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
             const file = e.target.files[0];
-            if (file.type === "image/gif") {
+            const { isValid, error, type } = validateMediaFile(file);
+
+            if (isValid && type === "GIF") {
                 onSelect(file);
                 onClose();
             } else {
-                alert("Please select a valid GIF file.");
+                alert(error || "Please select a valid GIF file under the limit.");
             }
         }
     };
@@ -188,7 +191,7 @@ export function GifModal({ isOpen, onClose, onSelect }: GifModalProps) {
                                 <p className="font-semibold text-lg">Upload GIF</p>
                                 <p className="text-sm text-muted-foreground mt-1">Drag & drop or click to browse</p>
                             </div>
-                            <p className="text-xs text-muted-foreground/50 mt-4">Max size 5MB</p>
+                            <p className="text-xs text-muted-foreground/50 mt-4">Max size {MEDIA_LIMITS.GIF / (1024 * 1024)}MB</p>
                         </div>
                         <input
                             type="file"

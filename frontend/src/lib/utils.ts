@@ -89,3 +89,32 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
     timeout = setTimeout(() => func(...args), wait);
   };
 }
+
+export const MEDIA_LIMITS = {
+  IMAGE: 2 * 1024 * 1024, // 2MB
+  GIF: 2 * 1024 * 1024,   // 2MB
+  VIDEO: 10 * 1024 * 1024 // 10MB
+};
+
+export function validateMediaFile(file: File): { isValid: boolean; error: string | null; type: "IMAGE" | "GIF" | "VIDEO" | "UNKNOWN" } {
+  const isImage = file.type.startsWith("image/");
+  const isVideo = file.type.startsWith("video/");
+
+  if (isImage) {
+    const type = file.type === "image/gif" ? "GIF" : "IMAGE";
+    const limit = MEDIA_LIMITS[type];
+    if (file.size > limit) {
+      return { isValid: false, error: `${type} ${file.name} exceeds ${limit / (1024 * 1024)}MB limit.`, type };
+    }
+    return { isValid: true, error: null, type };
+  }
+
+  if (isVideo) {
+    if (file.size > MEDIA_LIMITS.VIDEO) {
+      return { isValid: false, error: `Video ${file.name} exceeds ${MEDIA_LIMITS.VIDEO / (1024 * 1024)}MB limit.`, type: "VIDEO" };
+    }
+    return { isValid: true, error: null, type: "VIDEO" };
+  }
+
+  return { isValid: false, error: "Unsupported file type.", type: "UNKNOWN" };
+}

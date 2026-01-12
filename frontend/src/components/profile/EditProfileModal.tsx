@@ -12,6 +12,7 @@ import type { User } from "@/types";
 import { getDisplayName } from "@/lib/utils";
 import { Loader2, Upload } from "lucide-react";
 import { API_BASE_URL } from "@/lib/config";
+import { validateMediaFile } from "@/lib/utils";
 
 export function EditProfileModal() {
   const { user, updateUser } = useAuthStore();
@@ -60,8 +61,9 @@ export function EditProfileModal() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      showToast("Please select an image file");
+    const { isValid, error } = validateMediaFile(file);
+    if (!isValid) {
+      showToast(error || "Invalid file");
       return;
     }
 
