@@ -147,6 +147,7 @@ export function RegisterForm({ onSuccess }: { onSuccess?: () => void }) {
         <Input
           type="password"
           placeholder="Password"
+          minLength={6}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required

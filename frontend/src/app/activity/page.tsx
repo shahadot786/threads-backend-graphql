@@ -1,12 +1,13 @@
 "use client";
 
-import { useQuery } from "@apollo/client/react";
+import { useQuery, useMutation } from "@apollo/client/react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Header } from "@/components/layout/Header";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/Avatar";
 import { LoadingSpinner } from "@/components/ui/Loading";
 import { useAuthStore } from "@/stores/auth";
-import { GET_MY_NOTIFICATIONS } from "@/graphql/queries/user";
+import { GET_MY_NOTIFICATIONS, GET_UNREAD_NOTIFICATIONS_COUNT } from "@/graphql/queries/user";
+import { MARK_ALL_NOTIFICATIONS_AS_READ } from "@/graphql/mutations/user";
 import { formatRelativeTime } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -37,12 +38,25 @@ export default function ActivityPage() {
     }
   }, [isLoading, isAuthenticated, router]);
 
-  const { data, loading: notificationsLoading } = useQuery<NotificationsData>(
+  const { data, loading: notificationsLoading, refetch } = useQuery<NotificationsData>(
     GET_MY_NOTIFICATIONS,
     { skip: !isAuthenticated }
   );
 
   const notifications = data?.getMyNotifications || [];
+
+  const [markAllAsRead] = useMutation(MARK_ALL_NOTIFICATIONS_AS_READ, {
+    refetchQueries: [{ query: GET_UNREAD_NOTIFICATIONS_COUNT }],
+  });
+
+  // Mark all as read when page is viewed
+  useEffect(() => {
+    if (isAuthenticated && !notificationsLoading && notifications.some(n => !n.isRead)) {
+      markAllAsRead().then(() => {
+        refetch(); // Refresh current list to show them as read
+      });
+    }
+  }, [isAuthenticated, notificationsLoading, notifications, markAllAsRead, refetch]);
 
   if (isLoading) {
     return (

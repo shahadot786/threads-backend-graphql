@@ -23,3 +23,15 @@ export const UNFOLLOW_USER_MUTATION = gql`
     unfollowUser(userId: $userId)
   }
 `;
+
+export const MARK_ALL_NOTIFICATIONS_AS_READ = gql`
+  mutation MarkAllNotificationsAsRead {
+    markAllNotificationsAsRead
+  }
+`;
+
+export const MARK_NOTIFICATION_AS_READ = gql`
+  mutation MarkNotificationAsRead($notificationId: ID!) {
+    markNotificationAsRead(notificationId: $notificationId)
+  }
+`;

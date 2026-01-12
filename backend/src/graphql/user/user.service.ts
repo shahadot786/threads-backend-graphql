@@ -353,6 +353,13 @@ export const userService = {
     });
   },
 
+  // Get unread notifications count
+  async getUnreadNotificationsCount(userId: string) {
+    return prisma.notification.count({
+      where: { userId, isRead: false },
+    });
+  },
+
   // Mark notification as read
   async markNotificationAsRead(userId: string, notificationId: string) {
     const notification = await prisma.notification.findUnique({

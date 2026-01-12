@@ -74,3 +74,9 @@ export const GET_MY_NOTIFICATIONS = gql`
   }
   ${USER_FRAGMENT}
 `;
+
+export const GET_UNREAD_NOTIFICATIONS_COUNT = gql`
+  query GetUnreadNotificationsCount {
+    getUnreadNotificationsCount
+  }
+`;

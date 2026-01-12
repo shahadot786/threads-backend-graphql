@@ -207,18 +207,18 @@ export function CreatePost({ onSuccess }: CreatePostProps) {
     for (const file of files) {
       if (file.type.startsWith("image/")) {
         const type = file.type === "image/gif" ? "GIF" : "IMAGE";
-        if (file.size > 5 * 1024 * 1024 && type === "GIF") { // GIF specific check
-          tempError = `GIF ${file.name} exceeds 5MB limit.`;
+        if (file.size > 2 * 1024 * 1024 && type === "GIF") { // GIF specific check
+          tempError = `GIF ${file.name} exceeds 2MB limit.`;
           continue;
-        } else if (file.size > 5 * 1024 * 1024 && type === "IMAGE") { // Increased image limit for safety
-          tempError = `Image ${file.name} exceeds 5MB limit.`;
+        } else if (file.size > 2 * 1024 * 1024 && type === "IMAGE") { // Increased image limit for safety
+          tempError = `Image ${file.name} exceeds 2MB limit.`;
           continue;
         }
 
         newMedia.push({ file, preview: URL.createObjectURL(file), type });
       } else if (file.type.startsWith("video/")) {
-        if (file.size > 20 * 1024 * 1024) { // Increased video limit
-          tempError = `Video ${file.name} exceeds 20MB limit.`;
+        if (file.size > 10 * 1024 * 1024) { // Increased video limit
+          tempError = `Video ${file.name} exceeds 10MB limit.`;
           continue;
         }
         newMedia.push({ file, preview: URL.createObjectURL(file), type: "VIDEO" });
