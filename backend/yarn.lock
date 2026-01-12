@@ -190,6 +190,11 @@
   resolved "https://registry.npmjs.org/@electric-sql/pglite/-/pglite-0.3.2.tgz"
   integrity sha512-zfWWa+V2ViDCY/cmUfRqeWY1yLto+EpxjXnZzenB1TyxsTiXaTWeZFIZw6mac52BsuQm0RjCnisjBtdBaXOI6w==
 
+"@faker-js/faker@^10.2.0":
+  version "10.2.0"
+  resolved "https://registry.yarnpkg.com/@faker-js/faker/-/faker-10.2.0.tgz#91028d4086969825795de331c305e8b91414bcb7"
+  integrity sha512-rTXwAsIxpCqzUnZvrxVh3L0QA0NzToqWBLAhV+zDV3MIIwiQhAZHMdPCIaj5n/yADu/tyk12wIPgL6YHGXJP+g==
+
 "@graphql-tools/merge@^9.1.6":
   version "9.1.6"
   resolved "https://registry.npmjs.org/@graphql-tools/merge/-/merge-9.1.6.tgz"
