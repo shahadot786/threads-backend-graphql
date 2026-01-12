@@ -8,9 +8,16 @@ export async function GET(request: NextRequest) {
   const type = requestUrl.searchParams.get('type');
   const next = requestUrl.searchParams.get('next') || '/';
 
+  console.log('[AUTH CALLBACK] Received request:', {
+    url: request.url,
+    code: code ? 'PRESENT' : 'MISSING',
+    type,
+    next
+  });
+
   if (code) {
     const cookieStore = await cookies();
-    
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -44,17 +51,22 @@ export async function GET(request: NextRequest) {
       }
 
       // Determine redirect based on the type of auth action
+      console.log('[AUTH CALLBACK] Exchanged code for session. Type:', type);
+
       if (type === 'recovery') {
         // Password reset flow - redirect to reset password page
         return NextResponse.redirect(new URL('/reset-password', requestUrl.origin));
       }
 
-      if (type === 'signup' || type === 'email') {
-        // Email confirmation - redirect to verify-email success page
+      // If it's a signup or we have a session but no specific type, 
+      // check if we should go to verify-email
+      if (type === 'signup' || type === 'email' || (code && !type)) {
+        console.log('[AUTH CALLBACK] Redirecting to /verify-email');
         return NextResponse.redirect(new URL('/verify-email', requestUrl.origin));
       }
 
       // Default redirect
+      console.log('[AUTH CALLBACK] Falling back to default redirect:', next);
       return NextResponse.redirect(new URL(next, requestUrl.origin));
     } catch (err) {
       console.error('[AUTH CALLBACK] Unexpected error:', err);
