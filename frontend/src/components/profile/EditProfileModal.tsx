@@ -72,6 +72,9 @@ export function EditProfileModal() {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/upload`, {
         method: "POST",
         body: uploadFormData,
+        headers: {
+          "apollo-require-preflight": "true",
+        },
       });
 
       if (!response.ok) {
